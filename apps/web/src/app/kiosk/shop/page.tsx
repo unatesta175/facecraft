@@ -8,7 +8,6 @@ import { formatCurrency } from '@/lib/utils';
 
 export default function KioskShopPage() {
   const [packages, setPackages] = useState<any[]>([]);
-  const [cart, setCart] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
