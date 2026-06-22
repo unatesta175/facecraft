@@ -130,7 +130,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       isActive: user.isActive,
-      roles: user.roles.map((ur) => ur.role.name),
+      roles: user.roles.map((ur: any) => ur.role.name),
       permissions: user.roles.flatMap((ur: any) =>
         ur.role.permissions.map((rp: any) => `${rp.permission.resource}:${rp.permission.action}`)
       ),
