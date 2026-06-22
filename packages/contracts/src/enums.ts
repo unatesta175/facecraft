@@ -1,0 +1,69 @@
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  PHOTOGRAPHER = 'PHOTOGRAPHER',
+  STAFF = 'STAFF',
+}
+
+export enum OrderStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum PaymentMethod {
+  CARD = 'CARD',
+  QR = 'QR',
+  CASH = 'CASH',
+}
+
+export enum JobStatus {
+  QUEUED = 'QUEUED',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  RETRYING = 'RETRYING',
+}
+
+export enum JobType {
+  THUMBNAIL_GENERATION = 'THUMBNAIL_GENERATION',
+  FACE_INDEXING = 'FACE_INDEXING',
+  IMAGE_CLEANUP = 'IMAGE_CLEANUP',
+  RECEIPT_GENERATION = 'RECEIPT_GENERATION',
+}
+
+export enum PhotoVariantType {
+  THUMBNAIL_SMALL = 'THUMBNAIL_SMALL',
+  THUMBNAIL_MEDIUM = 'THUMBNAIL_MEDIUM',
+  EDITED = 'EDITED',
+  WITH_FRAME = 'WITH_FRAME',
+}
+
+export enum KioskStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  MAINTENANCE = 'MAINTENANCE',
+}
+
+export enum ProductType {
+  PRINT = 'PRINT',
+  CERTIFICATE = 'CERTIFICATE',
+  FRAME = 'FRAME',
+  ALBUM = 'ALBUM',
+  DIGITAL = 'DIGITAL',
+}
+
+export enum DiscountType {
+  PERCENTAGE = 'PERCENTAGE',
+  FIXED_AMOUNT = 'FIXED_AMOUNT',
+}

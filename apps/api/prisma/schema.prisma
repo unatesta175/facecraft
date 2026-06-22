@@ -1,0 +1,658 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles                UserRole[]
+  photographerProfile  PhotographerProfile?
+  staffProfile         StaffProfile?
+  auditLogs            AuditLog[]
+  verifiedPayments     Payment[]            @relation("StaffVerifiedPayments")
+
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  resource    String
+  action      String
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+
+  @@index([resource, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model PhotographerProfile {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  businessName String?
+  phone        String?
+  address      String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events Event[]
+  photos Photo[]
+  orders Order[]
+
+  @@map("photographer_profiles")
+}
+
+model StaffProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("staff_profiles")
+}
+
+model Kiosk {
+  id              String   @id @default(uuid())
+  name            String
+  location        String?
+  deviceId        String   @unique
+  status          String   @default("ACTIVE")
+  lastHeartbeatAt DateTime?
+  metadata        Json?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sessions KioskSession[]
+  orders   Order[]
+
+  @@index([status])
+  @@index([deviceId])
+  @@map("kiosks")
+}
+
+model KioskSession {
+  id           String   @id @default(uuid())
+  kioskId      String
+  sessionToken String   @unique
+  expiresAt    DateTime
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  kiosk Kiosk  @relation(fields: [kioskId], references: [id], onDelete: Cascade)
+  carts Cart[]
+  orders Order[]
+
+  @@index([kioskId])
+  @@index([sessionToken])
+  @@index([expiresAt])
+  @@map("kiosk_sessions")
+}
+
+model Event {
+  id             String   @id @default(uuid())
+  photographerId String
+  name           String
+  description    String?  @db.Text
+  eventDate      DateTime
+  location       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  photographer PhotographerProfile @relation(fields: [photographerId], references: [id], onDelete: Cascade)
+  photos       Photo[]
+
+  @@index([photographerId])
+  @@index([eventDate])
+  @@map("events")
+}
+
+model Photo {
+  id             String   @id @default(uuid())
+  photographerId String
+  eventId        String
+  s3Key          String
+  filename       String
+  contentType    String
+  fileSize       Int
+  width          Int
+  height         Int
+  faceCount      Int      @default(0)
+  capturedAt     DateTime @default(now())
+  expiresAt      DateTime
+  isProcessed    Boolean  @default(false)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  photographer PhotographerProfile @relation(fields: [photographerId], references: [id], onDelete: Cascade)
+  event        Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  variants     PhotoVariant[]
+  faces        PhotoFace[]
+  cartItems    CartItemPhoto[]
+  orderItems   OrderItemPhoto[]
+
+  @@index([photographerId])
+  @@index([eventId])
+  @@index([capturedAt])
+  @@index([expiresAt])
+  @@map("photos")
+}
+
+model PhotoVariant {
+  id            String   @id @default(uuid())
+  photoId       String
+  type          String
+  s3Key         String
+  width         Int
+  height        Int
+  transformData Json?
+  createdAt     DateTime @default(now())
+
+  photo      Photo             @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  cartItems  CartItemPhoto[]
+  orderItems OrderItemPhoto[]
+
+  @@index([photoId])
+  @@index([type])
+  @@map("photo_variants")
+}
+
+model PhotoFace {
+  id                  String   @id @default(uuid())
+  photoId             String
+  rekognitionFaceId   String   @unique
+  boundingBox         Json
+  confidence          Float
+  landmarks           Json?
+  rekognitionImageId  String?
+  createdAt           DateTime @default(now())
+
+  photo Photo @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@index([photoId])
+  @@index([rekognitionFaceId])
+  @@map("photo_faces")
+}
+
+model Frame {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  s3Key       String
+  thumbnailS3Key String?
+  aspectRatio String
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("frames")
+}
+
+model ProductCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  categoryId  String
+  name        String
+  description String?  @db.Text
+  type        String
+  basePrice   Decimal  @db.Decimal(10, 2)
+  dimensions  Json?
+  metadata    Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category      ProductCategory @relation(fields: [categoryId], references: [id])
+  variants      ProductVariant[]
+  packageItems  PackageItem[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+
+  @@index([categoryId])
+  @@index([type])
+  @@index([isActive])
+  @@map("products")
+}
+
+model ProductVariant {
+  id          String   @id @default(uuid())
+  productId   String
+  name        String
+  sku         String   @unique
+  priceAdjustment Decimal @db.Decimal(10, 2) @default(0)
+  attributes  Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([sku])
+  @@map("product_variants")
+}
+
+model Package {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  basePrice   Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items      PackageItem[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("packages")
+}
+
+model PackageItem {
+  id                 String @id @default(uuid())
+  packageId          String
+  productId          String
+  quantity           Int
+  requiredPhotoCount Int    @default(0)
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([packageId])
+  @@index([productId])
+  @@map("package_items")
+}
+
+model Cart {
+  id              String   @id @default(uuid())
+  kioskSessionId  String
+  subtotal        Decimal  @db.Decimal(10, 2) @default(0)
+  discount        Decimal  @db.Decimal(10, 2) @default(0)
+  total           Decimal  @db.Decimal(10, 2) @default(0)
+  discountId      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  kioskSession    KioskSession @relation(fields: [kioskSessionId], references: [id], onDelete: Cascade)
+  appliedDiscount Discount?    @relation("CartDiscount", fields: [discountId], references: [id])
+  items           CartItem[]
+
+  @@index([kioskSessionId])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  productId String?
+  packageId String?
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  subtotal  Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+  package Package? @relation(fields: [packageId], references: [id])
+  photos  CartItemPhoto[]
+
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+model CartItemPhoto {
+  id              String  @id @default(uuid())
+  cartItemId      String
+  photoId         String
+  photoVariantId  String?
+
+  cartItem     CartItem      @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+  photo        Photo         @relation(fields: [photoId], references: [id])
+  photoVariant PhotoVariant? @relation(fields: [photoVariantId], references: [id])
+
+  @@index([cartItemId])
+  @@index([photoId])
+  @@map("cart_item_photos")
+}
+
+model Order {
+  id              String   @id @default(uuid())
+  orderNumber     String   @unique
+  photographerId  String
+  kioskSessionId  String?
+  kioskId         String?
+  status          String   @default("PENDING")
+  subtotal        Decimal  @db.Decimal(10, 2)
+  discount        Decimal  @db.Decimal(10, 2) @default(0)
+  total           Decimal  @db.Decimal(10, 2)
+  paymentMethod   String
+  paymentStatus   String   @default("PENDING")
+  discountId      String?
+  notes           String?  @db.Text
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  photographer        PhotographerProfile @relation(fields: [photographerId], references: [id])
+  kioskSession        KioskSession?       @relation(fields: [kioskSessionId], references: [id])
+  kiosk               Kiosk?              @relation(fields: [kioskId], references: [id])
+  appliedDiscount     Discount?           @relation("OrderDiscount", fields: [discountId], references: [id])
+  items               OrderItem[]
+  statusHistory       OrderStatusHistory[]
+  payments            Payment[]
+  receipt             Receipt?
+  digitalGallery      DigitalGallery?
+  printJobs           PrintJob[]
+  discountRedemptions DiscountRedemption[]
+
+  @@index([orderNumber])
+  @@index([photographerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  productId String?
+  packageId String?
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  subtotal  Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+  package Package? @relation(fields: [packageId], references: [id])
+  photos  OrderItemPhoto[]
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderItemPhoto {
+  id             String  @id @default(uuid())
+  orderItemId    String
+  photoId        String
+  photoVariantId String?
+
+  orderItem    OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  photo        Photo         @relation(fields: [photoId], references: [id])
+  photoVariant PhotoVariant? @relation(fields: [photoVariantId], references: [id])
+
+  @@index([orderItemId])
+  @@index([photoId])
+  @@map("order_item_photos")
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  status    String
+  notes     String?  @db.Text
+  changedBy String?
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_status_history")
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  orderId           String
+  amount            Decimal  @db.Decimal(10, 2)
+  paymentMethod     String
+  status            String   @default("PENDING")
+  transactionId     String?  @unique
+  idempotencyKey    String   @unique
+  verifiedByStaffId String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  order         Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  verifiedBy    User?            @relation("StaffVerifiedPayments", fields: [verifiedByStaffId], references: [id])
+  attempts      PaymentAttempt[]
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentAttempt {
+  id           String   @id @default(uuid())
+  paymentId    String
+  status       String
+  errorCode    String?
+  errorMessage String?  @db.Text
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_attempts")
+}
+
+model Discount {
+  id                  String    @id @default(uuid())
+  code                String    @unique
+  type                String
+  value               Decimal   @db.Decimal(10, 2)
+  minPurchaseAmount   Decimal?  @db.Decimal(10, 2)
+  maxDiscountAmount   Decimal?  @db.Decimal(10, 2)
+  startDate           DateTime
+  endDate             DateTime
+  usageLimit          Int?
+  usedCount           Int       @default(0)
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  redemptions DiscountRedemption[]
+  carts       Cart[]   @relation("CartDiscount")
+  orders      Order[]  @relation("OrderDiscount")
+
+  @@index([code])
+  @@index([isActive])
+  @@map("discounts")
+}
+
+model DiscountRedemption {
+  id         String   @id @default(uuid())
+  discountId String
+  orderId    String
+  amount     Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+
+  discount Discount @relation(fields: [discountId], references: [id])
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([discountId])
+  @@index([orderId])
+  @@map("discount_redemptions")
+}
+
+model Receipt {
+  id         String   @id @default(uuid())
+  orderId    String   @unique
+  receiptNumber String @unique
+  s3Key      String?
+  pdfData    Json?
+  createdAt  DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([receiptNumber])
+  @@map("receipts")
+}
+
+model DigitalGallery {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  accessToken String   @unique
+  expiresAt   DateTime
+  viewCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([accessToken])
+  @@index([expiresAt])
+  @@map("digital_galleries")
+}
+
+model PrintJob {
+  id         String   @id @default(uuid())
+  orderId    String
+  status     String   @default("PENDING")
+  printerRef String?
+  metadata   Json?
+  startedAt  DateTime?
+  completedAt DateTime?
+  errorMessage String? @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@map("print_jobs")
+}
+
+model Job {
+  id          String    @id @default(uuid())
+  type        String
+  status      String    @default("QUEUED")
+  payload     Json
+  result      Json?
+  error       String?   @db.Text
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  scheduledAt DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([type, status])
+  @@index([scheduledAt])
+  @@map("jobs")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AppSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  category  String   @default("general")
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("app_settings")
+}
