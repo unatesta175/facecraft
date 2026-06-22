@@ -102,7 +102,7 @@ cartRouter.post(
       }
 
       const totalRequiredPhotos = pkg.items.reduce(
-        (sum, item) => sum + item.requiredPhotoCount * item.quantity,
+        (sum: number, item: any) => sum + item.requiredPhotoCount * item.quantity,
         0
       );
 
@@ -126,7 +126,7 @@ cartRouter.post(
         unitPrice,
         subtotal,
         photos: {
-          create: photos.map((p) => ({
+          create: photos.map((p: { photoId: string; photoVariantId: string }) => ({
             photoId: p.photoId,
             photoVariantId: p.photoVariantId,
           })),

@@ -44,18 +44,16 @@ sudo apt install -y mysql-server
 
 # Secure MySQL installation (automated)
 print_status "Securing MySQL..."
-sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'temp_root_password';"
-sudo mysql -u root -ptemp_root_password -e "DELETE FROM mysql.user WHERE User='';"
-sudo mysql -u root -ptemp_root_password -e "DROP DATABASE IF EXISTS test;"
-sudo mysql -u root -ptemp_root_password -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
-sudo mysql -u root -ptemp_root_password -e "FLUSH PRIVILEGES;"
+sudo mysql -e "DELETE FROM mysql.user WHERE User='';"
+sudo mysql -e "DROP DATABASE IF EXISTS test;"
+sudo mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
+sudo mysql -e "FLUSH PRIVILEGES;"
 
 # Create FaceCraft database and user
 print_status "Creating FaceCraft database..."
-MYSQL_ROOT_PASSWORD="temp_root_password"
 FACECRAFT_DB_PASSWORD=$(openssl rand -base64 32)
 
-sudo mysql -u root -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+sudo mysql <<EOF
 CREATE DATABASE IF NOT EXISTS facecraft;
 CREATE USER IF NOT EXISTS 'facecraft'@'localhost' IDENTIFIED BY '${FACECRAFT_DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON facecraft.* TO 'facecraft'@'localhost';

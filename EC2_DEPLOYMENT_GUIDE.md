@@ -231,64 +231,128 @@ Point your domain's A record to the Elastic IP address.
 
 ## Step 3: Initial Server Setup
 
-### 3.1 Connect to EC2
+This step installs server software on the EC2 instance:
 
-```bash
-ssh -i your-key.pem ubuntu@YOUR_ELASTIC_IP
+- Node.js 20
+- MySQL
+- Nginx
+- PM2
+- Git and build tools
+- The `/var/www/facecraft` application folder
+
+### 3.1 Before You Start
+
+You must already have these from Step 2:
+
+- Your EC2 instance is running
+- Your key pair `.pem` file is downloaded on your Windows computer
+- Your Elastic IP is associated with the EC2 instance
+- Your EC2 Security Group allows SSH port `22` from your IP
+
+Replace these values in the commands below:
+""
+- `C:\Users\User\Downloads\facecraft-key.pem` = the real path to your downloaded `.pem` file
+- `54.255.93.4` = your EC2 Elastic IP, for example `54.123.45.67`
+
+### 3.2 Connect to EC2
+
+Run this command in **Windows PowerShell**:
+
+```powershell
+ssh -i "C:\path\to\your-key.pem" ubuntu@YOUR_ELASTIC_IP
 ```
 
-### 3.2 Run Setup Script
+Example:
 
-Before running this section, you need the `ec2-setup.sh` script on the EC2 server.
+```powershell
+ssh -i "C:\Users\User\Downloads\facecraft-key.pem" ubuntu@54.123.45.67
+```
 
-If you pushed the project to GitHub, replace:
+If it asks:
 
-- `<github-username>` with your GitHub username
-- `<repo-name>` with your repository name, usually `facecraft`
-- `main` with your real branch name if it is different
+```text
+Are you sure you want to continue connecting?
+```
+
+Type:
+
+```text
+yes
+```
+
+After this works, your terminal is now **inside the EC2 server**. Commands from the next sections are Linux commands unless stated otherwise.
+
+### 3.3 Get the Setup Script Onto EC2
+
+You have two choices.
+
+#### Option A: Download From GitHub
+
+Use this only if you already pushed this full `facecraft` monorepo to GitHub.
+
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
-# Download and run setup script from GitHub
 wget https://raw.githubusercontent.com/<github-username>/<repo-name>/main/infrastructure/scripts/ec2-setup.sh
-chmod +x ec2-setup.sh
-./ec2-setup.sh
 ```
 
 Example:
 
 ```bash
 wget https://raw.githubusercontent.com/your-github-username/facecraft/main/infrastructure/scripts/ec2-setup.sh
-chmod +x ec2-setup.sh
-./ec2-setup.sh
 ```
 
-If you did not push the project to GitHub, copy the script manually from your Windows machine to EC2 first. Run this in Windows PowerShell, not inside EC2:
+#### Option B: Copy From Windows Manually
+
+Use this if you have not pushed the project to GitHub.
+
+Open a **new Windows PowerShell window on your computer**. Do not run this inside the EC2 SSH terminal:
 
 ```powershell
 scp -i "C:\path\to\your-key.pem" "C:\Users\User\facecraft\infrastructure\scripts\ec2-setup.sh" ubuntu@YOUR_ELASTIC_IP:/home/ubuntu/ec2-setup.sh
 ```
 
-Then run this inside the EC2 SSH terminal:
+Then go back to your **EC2 SSH terminal**.
+
+### 3.4 Run the Setup Script
+
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
 chmod +x /home/ubuntu/ec2-setup.sh
 /home/ubuntu/ec2-setup.sh
 ```
 
-**IMPORTANT**: Save the database password and session secret that the script outputs!
+If you downloaded with `wget`, the file may be in your current folder instead. In that case run:
 
-## Step 4: Deploy Application
+```bash
+chmod +x ec2-setup.sh
+./ec2-setup.sh
+```
 
-### 4.1 Clone Repository
+If the script stops with `Plugin 'mysql_native_password' is not loaded`, your EC2 instance installed a newer MySQL version. Update `infrastructure/scripts/ec2-setup.sh` from this repository, then re-upload or re-download the script and run it again.
 
-Before running this section, your code must already be available from GitHub.
+When the script finishes, it prints two important values:
 
-If you have not pushed the project to GitHub, do not run `git clone` yet. Either push the project to GitHub first, or manually copy the full project folder to EC2.
+- `Database Password`
+- `Session Secret`
 
-Replace:
+Save both values. You need them in Step 5.1.
 
-- `<github-username>` with your GitHub username
-- `<repo-name>` with your repository name, usually `facecraft`
+## Step 4: Put the FaceCraft Code on EC2
+
+The server is ready now, but your application code still needs to be placed in `/var/www/facecraft`.
+
+### 4.1 Choose How to Upload the Code
+
+Use one of these methods:
+
+- **GitHub method**: recommended if you pushed this monorepo to GitHub
+- **Manual zip method**: use this if you do not want to use GitHub yet
+
+### 4.2 GitHub Method
+
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
 cd /var/www/facecraft
@@ -302,34 +366,64 @@ cd /var/www/facecraft
 git clone https://github.com/your-github-username/facecraft.git .
 ```
 
-If you are manually copying the project instead of using GitHub, create a zip of the project on Windows, upload it to EC2, then unzip it into `/var/www/facecraft`.
+If your GitHub repository is private, this may ask for authentication. For beginners, a public temporary repository is simpler, but do not commit secrets like `.env`, AWS keys, or `credentials.txt`.
 
-Run this in Windows PowerShell:
+### 4.3 Manual Zip Method
+
+Run this in **Windows PowerShell**:
 
 ```powershell
 Compress-Archive -Path "C:\Users\User\facecraft\*" -DestinationPath "C:\Users\User\facecraft.zip" -Force
 scp -i "C:\path\to\your-key.pem" "C:\Users\User\facecraft.zip" ubuntu@YOUR_ELASTIC_IP:/home/ubuntu/facecraft.zip
 ```
 
-Then run this inside the EC2 SSH terminal:
+Then run this **inside the EC2 SSH terminal**:
 
 ```bash
+sudo apt install -y unzip
 cd /var/www/facecraft
 unzip /home/ubuntu/facecraft.zip -d /var/www/facecraft
 ```
 
-### 4.2 Create Environment File
+### 4.4 Confirm the Code Is in the Right Place
+
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
+cd /var/www/facecraft
+ls
+```
+
+You should see files and folders like:
+
+```text
+apps
+packages
+infrastructure
+package.json
+```
+
+If you do not see those, stop and fix the upload/clone before continuing.
+
+## Step 5: Create Production Environment Files
+
+### 5.1 Create Backend `.env`
+
+Run this **inside the EC2 SSH terminal**:
+
+```bash
+cd /var/www/facecraft
 nano apps/api/.env
 ```
 
-Add this content (replace with your actual values):
+Paste this content. Replace the values marked with `YOUR_...`.
+
+If you are not using a domain yet, use your Elastic IP for `APP_URL`:
 
 ```env
 NODE_ENV=production
 API_PORT=4000
-APP_URL=https://your-domain.com
+APP_URL=http://YOUR_ELASTIC_IP
 API_URL=http://localhost:4000
 
 DATABASE_URL="mysql://facecraft:YOUR_DB_PASSWORD@127.0.0.1:3306/facecraft"
@@ -344,99 +438,291 @@ SIGNED_URL_TTL_SECONDS=300
 KIOSK_SESSION_TTL_MINUTES=30
 ```
 
-Set proper permissions:
+Example without domain:
+
+```env
+APP_URL=http://54.123.45.67
+DATABASE_URL="mysql://facecraft:the-password-from-step-3@127.0.0.1:3306/facecraft"
+SESSION_SECRET="the-session-secret-from-step-3"
+```
+
+Save in `nano`:
+
+1. Press `Ctrl + O`
+2. Press `Enter`
+3. Press `Ctrl + X`
+
+Then secure the file:
+
 ```bash
 chmod 600 apps/api/.env
 ```
 
-### 4.3 Install Dependencies and Build
+### 5.2 Create Frontend `.env.production`
+
+The Next.js frontend needs to know where the API is before you build it.
+
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
-npm install --production=false
-npm run build
+nano apps/web/.env.production
 ```
 
-### 4.4 Setup Database
+If you are using only the Elastic IP:
+
+```env
+NEXT_PUBLIC_API_URL=http://54.255.93.4
+```
+
+Example:
+
+```env
+NEXT_PUBLIC_API_URL=http://54.123.45.67
+```
+
+If you later use a domain:
+
+```env
+NEXT_PUBLIC_API_URL=https://your-domain.com
+```
+
+Save with `Ctrl + O`, `Enter`, then `Ctrl + X`.
+
+## Step 6: Install, Build, and Prepare Database
+
+Run all commands in this step **inside the EC2 SSH terminal**.
+
+### 6.1 Install Dependencies
+
+```bash
+cd /var/www/facecraft
+npm install --production=false
+```
+
+This may take several minutes.
+
+### 6.2 Generate Prisma Client
 
 ```bash
 npm run db:generate
-npm run db:migrate:deploy
+```
+
+### 6.3 Run Database Migration
+
+Use the API workspace deploy migration command:
+
+```bash
+npm run db:migrate:deploy --workspace=apps/api
+```
+
+### 6.4 Seed the Database
+
+```bash
 npm run db:seed
 ```
 
-### 4.5 Start Services with PM2
+This creates the test users, roles, products, packages, event data, and dummy setup data.
+
+### 6.5 Build the Apps
 
 ```bash
-# Start API
+npm run build
+```
+
+## Step 7: Start the App With PM2
+
+Run these commands **inside the EC2 SSH terminal**.
+
+### 7.1 Start Backend API
+
+```bash
+cd /var/www/facecraft
 pm2 start apps/api/dist/index.js --name facecraft-api
-
-# Start Next.js
-cd apps/web
-pm2 start npm --name facecraft-web -- start
-
-# Save PM2 configuration
-pm2 save
-
-# Setup PM2 to start on boot
-pm2 startup
-# Run the command that PM2 outputs
 ```
 
-## Step 5: Configure Nginx
-
-### 5.1 Copy Nginx Configuration
+### 7.2 Start Frontend Web App
 
 ```bash
-sudo cp infrastructure/nginx/facecraft.conf /etc/nginx/sites-available/facecraft
-sudo ln -s /etc/nginx/sites-available/facecraft /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
+cd /var/www/facecraft/apps/web
+pm2 start npm --name facecraft-web -- start
 ```
 
-### 5.2 Update Domain in Nginx Config
+### 7.3 Save PM2 Startup Configuration
+
+```bash
+pm2 save
+pm2 startup
+```
+
+The `pm2 startup` command will print another command that starts with `sudo env ...`.
+
+Copy that printed command, paste it into the EC2 terminal, and run it.
+
+### 7.4 Check PM2 Status
+
+```bash
+pm2 status
+```
+
+You should see:
+
+- `facecraft-api`
+- `facecraft-web`
+
+Both should show `online`.
+
+## Step 8: Configure Nginx
+
+Nginx receives browser traffic on port `80` and forwards it to:
+
+- Next.js frontend on port `3000`
+- API backend on port `4000`
+
+### 8.1 Copy the Nginx Config
+
+Run this **inside the EC2 SSH terminal**:
+
+```bash
+cd /var/www/facecraft
+sudo cp infrastructure/nginx/facecraft.conf /etc/nginx/sites-available/facecraft
+sudo ln -s /etc/nginx/sites-available/facecraft /etc/nginx/sites-enabled/facecraft
+sudo rm -f /etc/nginx/sites-enabled/default
+```
+
+### 8.2 Update `server_name`
+
+Run:
 
 ```bash
 sudo nano /etc/nginx/sites-available/facecraft
-# Change server_name to your domain
 ```
 
-### 5.3 Test and Restart Nginx
+Find this line:
+
+```nginx
+server_name facecraft.example.com;
+```
+
+If you are using Elastic IP only, change it to:
+
+```nginx
+server_name _;
+```
+
+If you are using a domain, change it to:
+
+```nginx
+server_name your-domain.com;
+```
+
+Save with `Ctrl + O`, `Enter`, then `Ctrl + X`.
+
+### 8.3 Test and Restart Nginx
 
 ```bash
 sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-## Step 6: Setup HTTPS with Let's Encrypt
+If `sudo nginx -t` shows an error, do not restart until the error is fixed.
 
-```bash
-# Install Certbot
-sudo apt install -y certbot python3-certbot-nginx
+## Step 9: Configure Firewall
 
-# Get SSL certificate
-sudo certbot --nginx -d your-domain.com
-
-# Test auto-renewal
-sudo certbot renew --dry-run
-```
-
-## Step 7: Configure Firewall
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
 sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-sudo ufw enable
+sudo ufw --force enable
+sudo ufw status
 ```
 
-## Step 8: Setup Monitoring and Backups
+Also confirm your AWS EC2 Security Group allows:
 
-### 8.1 MySQL Backup Script
+- SSH `22` from your IP
+- HTTP `80` from anywhere
+- HTTPS `443` from anywhere, only needed if you set up HTTPS
+
+## Step 10: Test the App
+
+### 10.1 Test From EC2
+
+Run this **inside the EC2 SSH terminal**:
+
+```bash
+curl http://localhost:4000/api/health
+curl http://localhost:3000
+```
+
+### 10.2 Test Through Nginx
+
+Run this **inside the EC2 SSH terminal**:
+
+```bash
+curl http://localhost/api/health
+```
+
+### 10.3 Test From Your Browser
+
+Open this in your browser:
+
+```text
+http://YOUR_ELASTIC_IP
+```
+
+Example:
+
+```text
+http://54.123.45.67
+```
+
+Then test:
+
+- `/` should load the home page
+- `/kiosk` should load the kiosk page
+- `/login` should load the login page
+- `/api/health` should return API health JSON
+
+## Step 11: Optional HTTPS Setup
+
+Only do this if you have a domain name pointed to your Elastic IP.
+
+Do not run Certbot for only an IP address. Let's Encrypt certificates require a real domain.
+
+Run this **inside the EC2 SSH terminal**:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+sudo certbot renew --dry-run
+```
+
+After HTTPS is working, update:
+
+- `apps/api/.env`: `APP_URL=https://your-domain.com`
+- `apps/web/.env.production`: `NEXT_PUBLIC_API_URL=https://your-domain.com`
+
+Then rebuild and restart:
+
+```bash
+cd /var/www/facecraft
+npm run build
+pm2 restart facecraft-api facecraft-web
+```
+
+## Step 12: Optional Backups and Logs
+
+### 12.1 MySQL Backup Script
+
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
 sudo nano /usr/local/bin/facecraft-backup.sh
 ```
 
-Add:
+Paste this content and replace `YOUR_DB_PASSWORD`:
+
 ```bash
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
@@ -446,35 +732,36 @@ DB_USER="facecraft"
 DB_PASSWORD="YOUR_DB_PASSWORD"
 
 mkdir -p $BACKUP_DIR
-
 mysqldump -u $DB_USER -p"$DB_PASSWORD" $DB_NAME | gzip > $BACKUP_DIR/db_$DATE.sql.gz
-
-# Upload to S3 (optional)
-aws s3 cp $BACKUP_DIR/db_$DATE.sql.gz s3://facecraft-backups/
-
-# Keep only last 7 days locally
 find $BACKUP_DIR -name "db_*.sql.gz" -mtime +7 -delete
 
 echo "Backup completed: db_$DATE.sql.gz"
 ```
 
-Make executable and schedule:
+Then run:
+
 ```bash
 sudo chmod +x /usr/local/bin/facecraft-backup.sh
-
-# Add to crontab
 sudo crontab -e
-# Add line: 0 2 * * * /usr/local/bin/facecraft-backup.sh
 ```
 
-### 8.2 Setup Log Rotation
+Add this line to run daily at 2 AM:
+
+```text
+0 2 * * * /usr/local/bin/facecraft-backup.sh
+```
+
+### 12.2 Log Rotation
+
+Run this **inside the EC2 SSH terminal**:
 
 ```bash
 sudo nano /etc/logrotate.d/facecraft
 ```
 
-Add:
-```
+Paste:
+
+```text
 /var/www/facecraft/logs/*.log {
     daily
     rotate 14
@@ -489,55 +776,24 @@ Add:
 }
 ```
 
-## Step 9: Verify Deployment
+## Step 13: Production Checklist
 
-### 9.1 Check Services
-
-```bash
-# Check PM2 status
-pm2 status
-
-# Check logs
-pm2 logs
-
-# Check Nginx
-sudo systemctl status nginx
-
-# Check MySQL
-sudo systemctl status mysql
-```
-
-### 9.2 Test Application
-
-1. Visit `https://your-domain.com`
-2. Go to `/kiosk` - should load kiosk interface
-3. Go to `/login` - try logging in with test account
-4. Test API: `curl https://your-domain.com/api/health`
-
-### 9.3 Test Database
-
-```bash
-mysql -u facecraft -p facecraft
-# Run some queries
-SELECT COUNT(*) FROM users;
-SELECT COUNT(*) FROM products;
-EXIT;
-```
-
-## Step 10: Production Checklist
-
-- [ ] Elastic IP allocated and DNS configured
-- [ ] SSL certificate installed and auto-renewal working
-- [ ] Firewall configured (only ports 22, 80, 443 open)
-- [ ] IAM role attached to EC2 (no AWS keys in files)
+- [ ] EC2 instance is running
+- [ ] Elastic IP is associated with EC2
+- [ ] IAM role is attached to EC2
 - [ ] S3 bucket is private with encryption enabled
-- [ ] Database backups running daily
-- [ ] PM2 configured to start on boot
-- [ ] All `.env` files have production values
-- [ ] Test accounts created via seed
-- [ ] Rekognition collection created
-- [ ] Log rotation configured
-- [ ] Monitoring/alerts setup (optional but recommended)
+- [ ] Rekognition collection is created
+- [ ] Code is in `/var/www/facecraft`
+- [ ] `apps/api/.env` exists with production values
+- [ ] `apps/web/.env.production` exists before building Next.js
+- [ ] `npm install --production=false` completed
+- [ ] Prisma migration and seed completed
+- [ ] `npm run build` completed
+- [ ] `facecraft-api` and `facecraft-web` are online in PM2
+- [ ] Nginx config test passes
+- [ ] Browser can open `http://YOUR_ELASTIC_IP`
+- [ ] HTTPS is configured only if using a domain
+- [ ] Database backups are configured, if needed
 
 ## Troubleshooting
 

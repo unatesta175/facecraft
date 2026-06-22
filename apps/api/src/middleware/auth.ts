@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-export async function authenticateUser(req: Request, res: Response, next: NextFunction) {
+export async function authenticateUser(req: Request, _res: Response, next: NextFunction) {
   try {
     const token = extractToken(req);
 
@@ -54,9 +54,9 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
       throw new AuthenticationError('Invalid authentication token');
     }
 
-    const roles = user.roles.map((ur) => ur.role.name);
-    const permissions = user.roles.flatMap((ur) =>
-      ur.role.permissions.map((rp) => `${rp.permission.resource}:${rp.permission.action}`)
+    const roles = user.roles.map((ur: any) => ur.role.name);
+    const permissions = user.roles.flatMap((ur: any) =>
+      ur.role.permissions.map((rp: any) => `${rp.permission.resource}:${rp.permission.action}`)
     );
 
     req.user = {
@@ -77,7 +77,7 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
 }
 
 export function requireRoles(...allowedRoles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new AuthenticationError());
     }
@@ -95,7 +95,7 @@ export function requireRoles(...allowedRoles: string[]) {
 }
 
 export function requirePermissions(...requiredPermissions: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new AuthenticationError());
     }

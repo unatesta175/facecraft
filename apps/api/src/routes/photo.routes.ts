@@ -60,7 +60,7 @@ photoRouter.get(
     const nextCursor = hasMore ? items[items.length - 1].id : undefined;
 
     const itemsWithUrls = await Promise.all(
-      items.map(async (photo) => ({
+      items.map(async (photo: any) => ({
         ...photo,
         thumbnailUrl: await s3Service.getPresignedDownloadUrl(
           s3Service.getThumbnailKey(photo.photographerId, photo.eventId, photo.id, 'medium')

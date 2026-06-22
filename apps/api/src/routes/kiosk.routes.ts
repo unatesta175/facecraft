@@ -171,7 +171,7 @@ kioskRouter.post(
 
     await s3Service.deleteObject(selfieS3Key);
 
-    res.json(
+    return res.json(
       ApiResponseBuilder.success(
         {
           matches: matchesWithUrls,

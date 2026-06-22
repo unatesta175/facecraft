@@ -93,14 +93,14 @@ orderRouter.post(
         paymentMethod,
         discountId,
         items: {
-          create: cart.items.map((item) => ({
+          create: cart.items.map((item: any) => ({
             productId: item.productId,
             packageId: item.packageId,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             subtotal: item.subtotal,
             photos: {
-              create: item.photos.map((p) => ({
+              create: item.photos.map((p: any) => ({
                 photoId: p.photoId,
                 photoVariantId: p.photoVariantId,
               })),

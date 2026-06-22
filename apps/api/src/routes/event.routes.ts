@@ -52,7 +52,7 @@ eventRouter.get('/', async (req, res) => {
 
   res.json(
     ApiResponseBuilder.success(
-      events.map((e) => ({
+      events.map((e: any) => ({
         ...e,
         photoCount: e._count.photos,
       })),

@@ -56,7 +56,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        roles: user.roles.map((ur) => ur.role.name),
+        roles: user.roles.map((ur: any) => ur.role.name),
       },
       token,
     };
@@ -93,7 +93,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        roles: user.roles.map((ur) => ur.role.name),
+        roles: user.roles.map((ur: any) => ur.role.name),
       },
       token,
     };
@@ -131,8 +131,8 @@ export class AuthService {
       name: user.name,
       isActive: user.isActive,
       roles: user.roles.map((ur) => ur.role.name),
-      permissions: user.roles.flatMap((ur) =>
-        ur.role.permissions.map((rp) => `${rp.permission.resource}:${rp.permission.action}`)
+      permissions: user.roles.flatMap((ur: any) =>
+        ur.role.permissions.map((rp: any) => `${rp.permission.resource}:${rp.permission.action}`)
       ),
       photographerProfile: user.photographerProfile,
       staffProfile: user.staffProfile,
