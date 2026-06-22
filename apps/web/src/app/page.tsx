@@ -69,9 +69,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="text-center mt-16 text-gray-500">
-          <p>Powered by AWS Rekognition & Next.js</p>
-        </div>
+       
       </div>
     </div>
   );
