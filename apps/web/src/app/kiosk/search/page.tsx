@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Calendar, Clock } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiRequest } from '@/lib/api-client';
 import { motion } from 'framer-motion';
