@@ -4,26 +4,49 @@
 
 @layer base {
   :root {
+    /* Base Colors */
+    --color-bg: #ffffff;
+    --color-surface-muted: #f7f6f3;
+    --color-border: #e8e3d8;
+    --color-border-subtle: #ececec;
+    --color-text-primary: #1f1b16;
+    --color-text-secondary: #9a9286;
+    --color-text-nav: #4b463d;
+
+    /* Brand Accents */
+    --color-gold: #c9982f;
+    --color-gold-tint: #fbf3df;
+    --color-gold-tint-text: #8a6a1f;
+    
+    --color-chocolate: #5c3a21;
+    --color-chocolate-tint: #f3eee5;
+    
+    /* Status Colors */
+    --color-success-bg: #eef3e3;
+    --color-success-text: #436b35;
+    --color-danger-text: #a32d2d;
+
+    /* shadcn/ui compatibility */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 20 20% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 20 20% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 25 95% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 45 100% 51%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 25 95% 53%;
-    --radius: 0.5rem;
+    --popover-foreground: 20 20% 10%;
+    --primary: 40 69% 49%;
+    --primary-foreground: 40 100% 97%;
+    --secondary: 28 48% 24%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 40 15% 96%;
+    --muted-foreground: 35 12% 58%;
+    --accent: 40 69% 49%;
+    --accent-foreground: 40 100% 97%;
+    --destructive: 0 65% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 20% 89%;
+    --input: 40 15% 96%;
+    --ring: 40 69% 49%;
+    --radius: 0.75rem;
   }
 }
 
@@ -32,7 +55,9 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-white text-[--color-text-primary] antialiased;
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" auto;
   }
 }
 
@@ -43,5 +68,155 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Responsive Kiosk & Desktop Styles */
+
+/* 21-inch Kiosk Screens (Touchscreen) - 1920x1080 and larger */
+@media screen and (min-width: 1920px) {
+  :root {
+    /* Larger text for kiosk readability */
+    font-size: 18px;
+  }
+
+  /* Increase touch targets for kiosk */
+  button,
+  a,
+  input,
+  select {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Larger spacing for kiosk */
+  .kiosk-spacing {
+    padding: 2rem;
+    gap: 2rem;
+  }
+
+  /* Hero sections on kiosk */
+  h1 {
+    font-size: clamp(3.5rem, 5vw, 6rem);
+  }
+
+  h2 {
+    font-size: clamp(2.5rem, 4vw, 4.5rem);
+  }
+
+  /* Button sizing for kiosk */
+  .kiosk-button {
+    padding: 1.5rem 3rem;
+    font-size: 1.5rem;
+    border-radius: 1.5rem;
+  }
+}
+
+/* Ultra-wide kiosk screens */
+@media screen and (min-width: 2560px) {
+  :root {
+    font-size: 20px;
+  }
+
+  .container {
+    max-width: 2400px;
+  }
+}
+
+/* Tablet landscape (common kiosk size) */
+@media screen and (min-width: 1024px) and (max-width: 1366px) {
+  :root {
+    font-size: 16px;
+  }
+
+  /* Optimize for tablet kiosks */
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase all interactive element sizes */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    padding: 0.75rem 1.25rem;
+  }
+
+  /* Remove hover effects on touch devices */
+  button:hover,
+  a:hover {
+    transform: none;
+  }
+
+  /* Add active states for touch feedback */
+  button:active,
+  a:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+
+  /* Larger scroll targets */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-gold);
+    border-radius: 6px;
+  }
+}
+
+/* Hide scrollbar for infinite scroll areas (cleaner look) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gold);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-chocolate);
+}
+
+/* Print styles for receipts */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  body {
+    font-size: 12px;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
   }
 }

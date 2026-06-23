@@ -8,7 +8,7 @@ import { logger } from '../config/logger';
 const prisma = new PrismaClient();
 
 export class AuthService {
-  async register(email: string, password: string, name: string, roleName: string = 'PHOTOGRAPHER') {
+  async register(email: string, password: string, name: string, username: string, staffCode: string, role: string = 'STAFF') {
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
@@ -19,35 +19,18 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const role = await prisma.role.findUnique({
-      where: { name: roleName },
-    });
-
-    if (!role) {
-      throw new Error(`Role '${roleName}' not found`);
-    }
-
     const user = await prisma.user.create({
       data: {
         email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         name,
-        roles: {
-          create: {
-            roleId: role.id,
-          },
-        },
-      },
-      include: {
-        roles: {
-          include: {
-            role: true,
-          },
-        },
+        username,
+        staffCode,
+        role: role as any,
       },
     });
 
-    logger.info({ userId: user.id, email, role: roleName }, 'User registered');
+    logger.info({ userId: user.id, email, role }, 'User registered');
 
     const token = this.generateToken(user.id);
 
@@ -56,7 +39,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        roles: user.roles.map((ur: any) => ur.role.name),
+        username: user.username,
+        staffCode: user.staffCode,
+        role: user.role,
       },
       token,
     };
@@ -65,20 +50,13 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await prisma.user.findUnique({
       where: { email },
-      include: {
-        roles: {
-          include: {
-            role: true,
-          },
-        },
-      },
     });
 
-    if (!user || !user.isActive) {
+    if (!user || user.status !== 'ACTIVE') {
       throw new AuthenticationError('Invalid email or password');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       throw new AuthenticationError('Invalid email or password');
@@ -93,7 +71,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        roles: user.roles.map((ur: any) => ur.role.name),
+        username: user.username,
+        staffCode: user.staffCode,
+        role: user.role,
       },
       token,
     };
@@ -102,23 +82,6 @@ export class AuthService {
   async getUserById(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        roles: {
-          include: {
-            role: {
-              include: {
-                permissions: {
-                  include: {
-                    permission: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        photographerProfile: true,
-        staffProfile: true,
-      },
     });
 
     if (!user) {
@@ -129,13 +92,11 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
-      isActive: user.isActive,
-      roles: user.roles.map((ur: any) => ur.role.name),
-      permissions: user.roles.flatMap((ur: any) =>
-        ur.role.permissions.map((rp: any) => `${rp.permission.resource}:${rp.permission.action}`)
-      ),
-      photographerProfile: user.photographerProfile,
-      staffProfile: user.staffProfile,
+      username: user.username,
+      staffCode: user.staffCode,
+      role: user.role,
+      status: user.status,
+      deletePermission: user.deletePermission,
     };
   }
 
