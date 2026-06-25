@@ -9,58 +9,33 @@ type DemoCredentialsProps = {
 
 export function DemoCredentials({ accounts, variant }: DemoCredentialsProps) {
   if (!accounts) {
-    return (
-      <div className="mt-6 p-4 bg-[#f7f6f3] rounded-lg border border-[#e5e1d7]">
-        <p className="font-nunito text-xs text-[#9a9286] text-center">
-          Loading demo accounts...
-        </p>
-      </div>
-    );
+    return null;
   }
 
   const account = variant === 'admin' ? accounts.admin : accounts.kiosk;
+  const password = accounts.passwordHint;
 
-  if (!account) {
-    return (
-      <div className="mt-6 p-4 bg-[#f7f6f3] rounded-lg border border-[#e5e1d7]">
-        <p className="font-nunito text-xs text-[#9a9286] text-center">
-          No active {variant} account found in database. Run the seed script first.
-        </p>
-      </div>
-    );
+  if (!account || !password) {
+    return null;
+  }
+
+  const loginField =
+    variant === 'admin' && 'email' in account
+      ? `email: ${account.email}`
+      : 'username' in account
+        ? `username: ${account.username}`
+        : null;
+
+  if (!loginField) {
+    return null;
   }
 
   return (
     <div className="mt-6 p-4 bg-[#f7f6f3] rounded-lg border border-[#e5e1d7]">
-      <p className="font-nunito text-xs text-[#9a9286] text-center mb-2">
-        Demo account from database
+      <p className="font-nunito text-xs text-[#1f1b16] text-center">
+        Login Credentials: {loginField} and password:{' '}
+        <span className="font-semibold">{password}</span>
       </p>
-      {'email' in account && (
-        <>
-          <p className="font-nunito text-xs text-[#1f1b16] text-center mb-1">
-            {account.name} ({account.role})
-          </p>
-          <p className="font-mono text-xs text-[#1f1b16] text-center mb-1">
-            Email: <span className="font-semibold">{account.email}</span>
-          </p>
-        </>
-      )}
-      {'description' in account && (
-        <>
-          <p className="font-nunito text-xs text-[#1f1b16] text-center mb-1">
-            {account.name}
-            {account.description ? ` · ${account.description}` : ''}
-          </p>
-          <p className="font-mono text-xs text-[#1f1b16] text-center mb-1">
-            Username: <span className="font-semibold">{account.username}</span>
-          </p>
-        </>
-      )}
-      {accounts.passwordHint && (
-        <p className="font-mono text-xs text-[#1f1b16] text-center">
-          Password: <span className="font-semibold">{accounts.passwordHint}</span>
-        </p>
-      )}
     </div>
   );
 }
