@@ -2,7 +2,29 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-export function useAdminData<T>(fetcher: () => Promise<T>, deps: unknown[] = [], defaultValue?: T) {
+type AdminDataResult<T> = {
+  isLoading: boolean;
+  error: string | null;
+  reload: () => Promise<void>;
+};
+
+export function useAdminData<T>(
+  fetcher: () => Promise<T>,
+  deps: unknown[],
+  defaultValue: T
+): AdminDataResult<T> & { data: T };
+
+export function useAdminData<T>(
+  fetcher: () => Promise<T>,
+  deps?: unknown[],
+  defaultValue?: undefined
+): AdminDataResult<T> & { data: T | null };
+
+export function useAdminData<T>(
+  fetcher: () => Promise<T>,
+  deps: unknown[] = [],
+  defaultValue?: T
+) {
   const [data, setData] = useState<T | null>(defaultValue ?? null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
