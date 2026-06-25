@@ -5,29 +5,10 @@ import AdminLayout from '@/components/admin-layout';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Package, ShoppingBag, Camera, Monitor } from 'lucide-react';
-import { adminApi } from '@/lib/admin-api';
-
-type DashboardOrder = {
-  id: string;
-  orderCode: string;
-  kioskName: string;
-  date: string;
-  price: number;
-  paymentStatus: string;
-};
-
-type DashboardData = {
-  stats: {
-    totalOrders: number;
-    totalSales: number;
-    totalPhotographers: number;
-    totalKiosks: number;
-  };
-  recentOrders: DashboardOrder[];
-};
+import { adminApi, type AdminDashboard as AdminDashboardData } from '@/lib/admin-api';
 
 export default function AdminDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [data, setData] = useState<AdminDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 

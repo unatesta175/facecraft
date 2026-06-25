@@ -110,6 +110,16 @@ export type AdminOrder = {
   cancellationReason?: string | null;
 };
 
+export type AdminDashboard = {
+  stats: {
+    totalOrders: number;
+    totalSales: number;
+    totalPhotographers: number;
+    totalKiosks: number;
+  };
+  recentOrders: AdminOrder[];
+};
+
 export type AdminPhotographerPhoto = {
   id: string;
   imageUrl: string;
@@ -166,7 +176,7 @@ async function del<T>(url: string): Promise<T> {
 }
 
 export const adminApi = {
-  getDashboard: () => get<{ stats: Record<string, number>; recentOrders: AdminOrder[] }>('/api/v1/admin/dashboard'),
+  getDashboard: () => get<AdminDashboard>('/api/v1/admin/dashboard'),
   getSizes: () => get<AdminSize[]>('/api/v1/admin/sizes'),
   getSize: (id: string) => get<AdminSize>(`/api/v1/admin/sizes/${id}`),
   getProducts: () => get<AdminProduct[]>('/api/v1/admin/products'),
