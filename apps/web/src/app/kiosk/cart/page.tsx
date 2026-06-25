@@ -433,8 +433,8 @@ export default function CartPage() {
                     </div>
                   ) : null}
                   <div style={{ fontSize: '10px', marginLeft: '10px' }}>
-                    {item.products.map((product) => (
-                      <div key={product.id} style={{ marginBottom: '3px' }}>
+                    {item.products.map((product, productIndex) => (
+                      <div key={`${product.name}-${productIndex}`} style={{ marginBottom: '3px' }}>
                         • {product.assignments.length}/{product.photoCount} {product.name}
                       </div>
                     ))}

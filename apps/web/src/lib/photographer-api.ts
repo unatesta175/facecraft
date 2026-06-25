@@ -1,6 +1,5 @@
 import { apiRequest } from './api-client';
-import { getImageDimensions } from './s3-upload';
-import { assetsApi } from './assets-api';
+import { getImageDimensions, normalizeContentType, uploadFileToPresignedUrl } from './s3-upload';
 
 export type PhotographerStats = {
   totalLifetimeUploads: number;
@@ -69,6 +68,10 @@ export const photographerApi = {
       width,
       height,
     });
+
+    if (!initResponse.data) {
+      throw new Error('Upload initialization failed');
+    }
 
     await uploadFileToPresignedUrl(initResponse.data.uploadUrl, file, contentType);
 

@@ -24,11 +24,6 @@ export function useKioskCart() {
     setHydrated(true);
   }, []);
 
-  const persist = useCallback((next: KioskCartStorage) => {
-    setData(next);
-    saveKioskCart(next);
-  }, []);
-
   const setProductAssignments = useCallback(
     (
       updater:

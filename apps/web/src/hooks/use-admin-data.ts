@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-type AdminDataResult<T> = {
+type AdminDataResult = {
   isLoading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -12,13 +12,13 @@ export function useAdminData<T>(
   fetcher: () => Promise<T>,
   deps: unknown[],
   defaultValue: T
-): AdminDataResult<T> & { data: T };
+): AdminDataResult & { data: T };
 
 export function useAdminData<T>(
   fetcher: () => Promise<T>,
   deps?: unknown[],
   defaultValue?: undefined
-): AdminDataResult<T> & { data: T | null };
+): AdminDataResult & { data: T | null };
 
 export function useAdminData<T>(
   fetcher: () => Promise<T>,

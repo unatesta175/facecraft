@@ -80,7 +80,7 @@ export default function UploadHistoryPage() {
     );
   });
 
-  const handleDownload = (imageUrl: string | null, filename: string) => {
+  const handleDownload = (imageUrl: string | null, _filename: string) => {
     if (!imageUrl) {
       toast({
         title: 'Download unavailable',
