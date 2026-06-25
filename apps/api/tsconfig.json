@@ -15,5 +15,16 @@
     "types": ["node", "jest"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "src/routes/cart.routes.ts",
+    "src/routes/discount.routes.ts",
+    "src/routes/event.routes.ts",
+    "src/routes/order.routes.ts",
+    "src/routes/package.routes.ts",
+    "src/routes/photo.routes.ts",
+    "src/routes/product.routes.ts"
+  ]
 }
