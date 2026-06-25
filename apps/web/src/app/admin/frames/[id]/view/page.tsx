@@ -5,14 +5,21 @@ import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Pencil } from 'lucide-react';
-import { MOCK_FRAMES } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { AdminImagePreview } from '@/components/admin/admin-image';
 
 export default function FrameViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const frame = MOCK_FRAMES.find((f) => f.id === params.id) ?? MOCK_FRAMES[0];
+  const { data: frame, isLoading, error } = useAdminData(() => adminApi.getFrame(params.id), [params.id]);
+
   const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="space-y-1.5"><Label className="text-[--color-text-secondary] text-xs uppercase tracking-wide">{label}</Label><div className="text-sm font-medium text-[--color-text-primary] bg-[--color-surface-muted] rounded-lg px-3 py-2.5 border border-[--color-border]">{value}</div></div>
   );
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!frame) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
+
   return (
     <AdminLayout>
       <div className="p-8 max-w-md space-y-6">
@@ -22,6 +29,10 @@ export default function FrameViewPage({ params }: { params: { id: string } }) {
           <Button onClick={() => router.push(`/admin/frames/${frame.id}/edit`)} className="bg-[--color-gold] hover:bg-[--color-gold]/90 text-white"><Pencil className="h-4 w-4 mr-2" />Edit</Button>
         </div>
         <div className="bg-white border border-[--color-border] rounded-xl p-6 space-y-5">
+          <div className="space-y-1.5">
+            <Label className="text-[--color-text-secondary] text-xs uppercase tracking-wide">Frame Image</Label>
+            <AdminImagePreview src={frame.imageUrl} alt={frame.name} />
+          </div>
           <Field label="Frame Name" value={frame.name} />
           <div className="space-y-1.5"><Label className="text-[--color-text-secondary] text-xs uppercase tracking-wide">Status</Label><div className="pt-1"><StatusBadge status={frame.status} /></div></div>
           <Field label="Created At" value={new Date(frame.createdAt).toLocaleDateString()} />

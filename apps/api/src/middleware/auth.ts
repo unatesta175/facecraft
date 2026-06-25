@@ -2,15 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthenticationError, AuthorizationError } from '../utils/errors';
 import { env } from '../config/env';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../services/database.service';
 
 export interface AuthUser {
   id: string;
   email: string;
   roles: string[];
   permissions: string[];
+  isPhotographer: boolean;
 }
 
 declare global {
@@ -32,38 +31,19 @@ export async function authenticateUser(req: Request, _res: Response, next: NextF
     const decoded = jwt.verify(token, env.SESSION_SECRET) as { userId: string };
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId, isActive: true },
-      include: {
-        roles: {
-          include: {
-            role: {
-              include: {
-                permissions: {
-                  include: {
-                    permission: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      where: { id: decoded.userId },
     });
 
-    if (!user) {
+    if (!user || user.status !== 'ACTIVE') {
       throw new AuthenticationError('Invalid authentication token');
     }
-
-    const roles = user.roles.map((ur: any) => ur.role.name);
-    const permissions = user.roles.flatMap((ur: any) =>
-      ur.role.permissions.map((rp: any) => `${rp.permission.resource}:${rp.permission.action}`)
-    );
 
     req.user = {
       id: user.id,
       email: user.email,
-      roles,
-      permissions,
+      roles: [user.role],
+      permissions: [],
+      isPhotographer: user.isPhotographer,
     };
 
     next();
@@ -92,6 +72,18 @@ export function requireRoles(...allowedRoles: string[]) {
 
     next();
   };
+}
+
+export function requirePhotographer(req: Request, _res: Response, next: NextFunction) {
+  if (!req.user) {
+    return next(new AuthenticationError());
+  }
+
+  if (!req.user.isPhotographer && !req.user.roles.includes('ADMIN')) {
+    return next(new AuthorizationError('Photographer access required'));
+  }
+
+  next();
 }
 
 export function requirePermissions(...requiredPermissions: string[]) {

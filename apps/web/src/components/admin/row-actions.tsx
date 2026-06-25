@@ -1,5 +1,5 @@
 'use client';
-import { MoreVertical, Eye, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Eye, Pencil, Trash2, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -7,9 +7,10 @@ interface RowActionsProps {
   onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onPhotos?: () => void;
 }
 
-export function RowActions({ onView, onEdit, onDelete }: RowActionsProps) {
+export function RowActions({ onView, onEdit, onDelete, onPhotos }: RowActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -21,6 +22,11 @@ export function RowActions({ onView, onEdit, onDelete }: RowActionsProps) {
         {onView && (
           <DropdownMenuItem onClick={onView}>
             <Eye className="h-4 w-4 mr-2" /> View
+          </DropdownMenuItem>
+        )}
+        {onPhotos && (
+          <DropdownMenuItem onClick={onPhotos}>
+            <Image className="h-4 w-4 mr-2" /> Photos
           </DropdownMenuItem>
         )}
         {onEdit && (

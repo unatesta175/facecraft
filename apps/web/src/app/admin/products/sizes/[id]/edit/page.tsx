@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
@@ -8,22 +8,43 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_SIZES } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function SizeEditPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const size = MOCK_SIZES.find((s) => s.id === params.id) ?? MOCK_SIZES[0];
-  const [form, setForm] = useState({ height: String(size.height), width: String(size.width) });
+  const { data: size, isLoading, error } = useAdminData(() => adminApi.getSize(params.id), [params.id]);
+  const [form, setForm] = useState<{ height: string; width: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (size) {
+      setForm({ height: String(size.height), width: String(size.width) });
+    }
+  }, [size]);
+
   const confirmUpdate = async () => {
+    if (!form) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Size Updated', description: `Size updated to ${form.height}" × ${form.width}".` });
-    setConfirmOpen(false);
-    router.push('/admin/products/sizes');
+    try {
+      await adminApi.updateSize(params.id, {
+        height: Number(form.height),
+        width: Number(form.width),
+      });
+      toast({ title: 'Size Updated', description: `Size updated to ${form.height}" × ${form.width}".` });
+      router.push('/admin/products/sizes');
+    } catch (err) {
+      toast({ title: 'Update Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
   };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!size || !form) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
 
   return (
     <AdminLayout>

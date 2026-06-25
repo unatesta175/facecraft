@@ -7,24 +7,48 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_OBJECTS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { assetsApi } from '@/lib/assets-api';
+import { AdminImageUpload, useAdminImageUpload } from '@/components/admin/admin-image-upload';
 
 export default function UltraObjectNewPage() {
   const router = useRouter();
+  const { data: objects } = useAdminData(() => adminApi.getObjects(), []);
   const [form, setForm] = useState({ title: '', description: '', status: 'ACTIVE' });
   const [selectedObjects, setSelectedObjects] = useState<string[]>([]);
+  const { file, removeExisting, onImageChange } = useAdminImageUpload();
   const [saving, setSaving] = useState(false);
+
+  const objectList = objects ?? [];
 
   const toggleObject = (id: string) => setSelectedObjects((prev) => prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Ultra Object Created', description: `"${form.title}" created successfully.` });
-    router.push('/admin/ultra-objects');
+    try {
+      let imageUrl: string | null = null;
+      if (file) {
+        imageUrl = await assetsApi.uploadCatalogImage('ultra-objects', file);
+      }
+      await adminApi.createUltraObject({
+        title: form.title,
+        description: form.description || null,
+        status: form.status,
+        objectIds: selectedObjects,
+        imageUrl,
+      });
+      toast({ title: 'Ultra Object Created', description: `"${form.title}" created successfully.` });
+      router.push('/admin/ultra-objects');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -45,13 +69,12 @@ export default function UltraObjectNewPage() {
               </Select>
             </div>
             <div className="space-y-2"><Label>Description</Label><Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-            <div className="space-y-2">
-              <Label>Ultra Object Image</Label>
-              <div className="border-2 border-dashed border-[--color-border] rounded-lg p-6 text-center hover:border-[--color-gold] transition-colors cursor-pointer">
-                <Upload className="h-6 w-6 text-[--color-text-secondary] mx-auto mb-1" />
-                <p className="text-sm text-[--color-text-secondary]">Click to upload</p>
-              </div>
-            </div>
+            <AdminImageUpload
+              label="Ultra Object Image"
+              file={file}
+              removeExisting={removeExisting}
+              onChange={onImageChange}
+            />
           </div>
 
           <div className="bg-white border border-[--color-border] rounded-xl p-6 space-y-4">
@@ -59,17 +82,17 @@ export default function UltraObjectNewPage() {
             {selectedObjects.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {selectedObjects.map((oid) => {
-                  const obj = MOCK_OBJECTS.find((o) => o.id === oid);
+                  const obj = objectList.find((o) => o.id === oid);
                   return (
                     <span key={oid} className="inline-flex items-center gap-1.5 bg-[--color-gold-tint] text-[--color-gold-tint-text] text-xs font-medium px-2.5 py-1 rounded-full">
-                      {obj?.title}<button type="button" onClick={() => toggleObject(oid)}><X className="h-3 w-3" /></button>
+                      {obj?.title ?? oid}<button type="button" onClick={() => toggleObject(oid)}><X className="h-3 w-3" /></button>
                     </span>
                   );
                 })}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-[--color-border] rounded-lg p-3">
-              {MOCK_OBJECTS.map((o) => (
+              {objectList.map((o) => (
                 <button key={o.id} type="button" onClick={() => toggleObject(o.id)}
                   className={`text-left text-xs px-3 py-2 rounded-lg border transition-colors ${selectedObjects.includes(o.id) ? 'border-[--color-gold] bg-[--color-gold-tint] text-[--color-gold-tint-text]' : 'border-[--color-border] hover:bg-[--color-surface-muted] text-[--color-text-primary]'}`}>
                   {o.title}

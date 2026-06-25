@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, Upload, Check, X, Image as ImageIcon, LogOut, History, TrendingUp, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/kiosk/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { photographerApi } from '@/lib/photographer-api';
 
 interface CapturedPhoto {
   id: string;
   dataUrl: string;
   timestamp: Date;
   uploaded: boolean;
+  uploading?: boolean;
+  error?: string;
   file?: File;
 }
 
@@ -24,12 +27,22 @@ export default function PhotographerPage() {
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
-  
-  // Mock statistics - in production, fetch from API
-  const [stats] = useState({
-    totalLifetimeUploads: 1247,
-    todayUploads: 23,
+  const [stats, setStats] = useState({
+    totalLifetimeUploads: 0,
+    todayUploads: 0,
   });
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
+
+  useEffect(() => {
+    photographerApi
+      .getStats()
+      .then((response) => {
+        if (response.data) setStats(response.data);
+      })
+      .catch(() => {
+        router.push('/photographer/login');
+      });
+  }, [router]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -73,26 +86,64 @@ export default function PhotographerPage() {
       return;
     }
 
-    setIsUploading(true);
+    const toUpload = photos.filter((photo) => selectedPhotos.has(photo.id) && !photo.uploaded && photo.file);
+    if (toUpload.length === 0) return;
 
-    // Simulate upload to cloud
-    setTimeout(() => {
-      setPhotos(prev =>
-        prev.map(photo =>
-          selectedPhotos.has(photo.id)
-            ? { ...photo, uploaded: true }
-            : photo
-        )
+    setIsUploading(true);
+    setUploadProgress({ done: 0, total: toUpload.length });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const photo of toUpload) {
+      setPhotos((prev) =>
+        prev.map((item) => (item.id === photo.id ? { ...item, uploading: true, error: undefined } : item))
       );
 
-      toast({
-        title: 'Upload successful',
-        description: `${selectedPhotos.size} photo(s) uploaded to cloud`,
-      });
+      try {
+        await photographerApi.uploadPhoto(photo.file!);
+        successCount += 1;
+        setPhotos((prev) =>
+          prev.map((item) =>
+            item.id === photo.id ? { ...item, uploaded: true, uploading: false } : item
+          )
+        );
+      } catch (error: any) {
+        failCount += 1;
+        const message = error.response?.data?.error?.message || error.message || 'Upload failed';
+        setPhotos((prev) =>
+          prev.map((item) =>
+            item.id === photo.id ? { ...item, uploading: false, error: message } : item
+          )
+        );
+      }
 
-      setSelectedPhotos(new Set());
-      setIsUploading(false);
-    }, 2000);
+      setUploadProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+    }
+
+    if (successCount > 0) {
+      const statsResponse = await photographerApi.getStats();
+      if (statsResponse.data) setStats(statsResponse.data);
+
+      toast({
+        title: 'Upload complete',
+        description: `${successCount} photo(s) uploaded to S3${failCount ? `, ${failCount} failed` : ''}`,
+        variant: failCount ? 'destructive' : 'default',
+      });
+    } else {
+      toast({
+        title: 'Upload failed',
+        description:
+          failCount === toUpload.length
+            ? 'Photos could not reach S3. Your API credentials are fine — add CORS on the S3 bucket (see S3_SETUP.md).'
+            : `${failCount} photo(s) failed to upload`,
+        variant: 'destructive',
+      });
+    }
+
+    setSelectedPhotos(new Set());
+    setIsUploading(false);
+    setUploadProgress({ done: 0, total: 0 });
   };
 
   const handleUploadAll = () => {
@@ -132,12 +183,24 @@ export default function PhotographerPage() {
     });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await photographerApi.logout();
+    } catch {
+      // ignore logout errors
+    }
     router.push('/photographer/login');
   };
 
   if (isUploading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f7f6f3] gap-4">
+        <LoadingSpinner />
+        <p className="font-nunito text-[#9a9286]">
+          Uploading to S3... {uploadProgress.done}/{uploadProgress.total}
+        </p>
+      </div>
+    );
   }
 
   const uploadedCount = photos.filter(p => p.uploaded).length;
@@ -450,6 +513,13 @@ export default function PhotographerPage() {
                           <Badge className="bg-[#ff9d7e] text-white font-nunito text-xs">
                             Uploaded
                           </Badge>
+                        </div>
+                      )}
+                      {photo.error && (
+                        <div className="absolute bottom-3 left-3 right-3">
+                          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                            <p className="font-nunito text-xs text-red-700">{photo.error}</p>
+                          </div>
                         </div>
                       )}
                     </motion.div>

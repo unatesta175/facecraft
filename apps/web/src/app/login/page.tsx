@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, User, LogIn, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/lib/api-client';
+import { authApi } from '@/lib/auth-api';
+import { DemoAccounts } from '@/lib/kiosk-api';
+import { DemoCredentials } from '@/components/demo-credentials';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +18,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccounts | null>(null);
+
+  useEffect(() => {
+    authApi
+      .getDemoAccounts()
+      .then((response) => setDemoAccounts(response.data ?? null))
+      .catch(() => setDemoAccounts(null));
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,18 +166,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-[#f7f6f3] rounded-lg border border-[#e5e1d7]">
-            <p className="font-nunito text-xs text-[#9a9286] text-center mb-2">
-              Demo Accounts
-            </p>
-            <p className="font-mono text-xs text-[#1f1b16] text-center mb-1">
-              Admin: <span className="font-semibold">admin@facecraft.com</span>
-            </p>
-            <p className="font-mono text-xs text-[#1f1b16] text-center">
-              Password: <span className="font-semibold">password123</span>
-            </p>
-          </div>
+          <DemoCredentials accounts={demoAccounts} variant="admin" />
         </motion.div>
 
         {/* Footer */}

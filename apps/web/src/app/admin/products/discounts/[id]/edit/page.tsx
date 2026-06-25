@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
@@ -9,22 +9,44 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_DISCOUNTS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function DiscountEditPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const item = MOCK_DISCOUNTS.find((d) => d.id === params.id) ?? MOCK_DISCOUNTS[0];
-  const [form, setForm] = useState({ code: item.code, amount: String(item.amount), description: item.description ?? '' });
+  const { data: item, isLoading, error } = useAdminData(() => adminApi.getDiscount(params.id), [params.id]);
+  const [form, setForm] = useState<{ code: string; amount: string; description: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (item) {
+      setForm({ code: item.code, amount: String(item.amount), description: item.description ?? '' });
+    }
+  }, [item]);
+
   const confirmUpdate = async () => {
+    if (!form) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Discount Updated', description: `Discount "${form.code}" updated successfully.` });
-    setConfirmOpen(false);
-    router.push('/admin/products/discounts');
+    try {
+      await adminApi.updateDiscount(params.id, {
+        code: form.code.toUpperCase(),
+        amount: Number(form.amount),
+        description: form.description || null,
+      });
+      toast({ title: 'Discount Updated', description: `Discount "${form.code}" updated successfully.` });
+      router.push('/admin/products/discounts');
+    } catch (err) {
+      toast({ title: 'Update Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
   };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!item || !form) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
 
   return (
     <AdminLayout>

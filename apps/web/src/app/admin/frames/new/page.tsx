@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { adminApi } from '@/lib/admin-api';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function FrameNewPage() {
   const router = useRouter();
@@ -16,10 +18,16 @@ export default function FrameNewPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Frame Created', description: `Frame "${form.name}" created successfully.` });
-    router.push('/admin/frames');
+    try {
+      setSaving(true);
+      await adminApi.createFrame({ name: form.name, status: form.status, imageUrl: null });
+      toast({ title: 'Frame Created', description: `Frame "${form.name}" created successfully.` });
+      router.push('/admin/frames');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { adminApi } from '@/lib/admin-api';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function DiscountNewPage() {
   const router = useRouter();
@@ -16,10 +18,16 @@ export default function DiscountNewPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Discount Created', description: `Discount code "${form.code}" created successfully.` });
-    router.push('/admin/products/discounts');
+    try {
+      setSaving(true);
+      await adminApi.createDiscount({ code: form.code.toUpperCase(), amount: Number(form.amount), description: form.description || null });
+      toast({ title: 'Discount Created', description: `Discount code "${form.code}" created successfully.` });
+      router.push('/admin/products/discounts');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

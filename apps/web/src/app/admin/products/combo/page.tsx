@@ -11,13 +11,16 @@ import { ConfirmDialog } from '@/components/admin/confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Layers } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_COMBOS } from '@/lib/mock-data';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { adminApi } from '@/lib/admin-api';
+import { AdminImageThumb } from '@/components/admin/admin-image';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 const PER_PAGE = 10;
 
 export default function ComboProductsPage() {
   const router = useRouter();
-  const [items, setItems] = useState(MOCK_COMBOS);
+  const { data: items, isLoading, reload } = useAdminData(() => adminApi.getCombos(), [], []);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -26,10 +29,16 @@ export default function ComboProductsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const rows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const confirmDelete = () => {
-    setItems((prev) => prev.filter((c) => c.id !== deleteId));
-    toast({ title: 'Combo Product Deleted', description: 'The combo product has been successfully deleted.' });
-    setDeleteId(null);
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await adminApi.deleteCombo(deleteId);
+      toast({ title: 'Combo Product Deleted', description: 'The combo product has been successfully deleted.' });
+      setDeleteId(null);
+      reload();
+    } catch (err) {
+      toast({ title: 'Delete Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    }
   };
 
   return (
@@ -41,7 +50,7 @@ export default function ComboProductsPage() {
           <TableToolbar
             searchValue={search}
             onSearchChange={(v) => { setSearch(v); setPage(1); }}
-            onRefresh={() => toast({ title: 'Refreshed' })}
+            onRefresh={() => { reload(); toast({ title: 'Refreshed' }); }}
             onExport={() => toast({ title: 'Exporting…' })}
             searchPlaceholder="Search Name"
           />
@@ -57,26 +66,38 @@ export default function ComboProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((c, i) => (
-                <TableRow key={c.id}>
-                  <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
-                  <TableCell>
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${i % 2 === 0 ? 'bg-[--color-gold-tint]' : 'bg-[--color-chocolate-tint]'}`}>
-                      <Layers className={`h-4 w-4 ${i % 2 === 0 ? 'text-[--color-gold]' : 'text-[--color-chocolate]'}`} />
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="font-medium">RM {Number(c.price).toFixed(2)}</TableCell>
-                  <TableCell><StatusBadge status={c.status} /></TableCell>
-                  <TableCell>
-                    <RowActions
-                      onView={() => router.push(`/admin/products/combo/${c.id}/view`)}
-                      onEdit={() => router.push(`/admin/products/combo/${c.id}/edit`)}
-                      onDelete={() => setDeleteId(c.id)}
-                    />
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    Loading...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    No combo products found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((c, i) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
+                    <TableCell>
+                      <AdminImageThumb src={c.thumbnailUrl} alt={c.name} fallback={Layers} />
+                    </TableCell>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell className="font-medium">RM {Number(c.price).toFixed(2)}</TableCell>
+                    <TableCell><StatusBadge status={c.status} /></TableCell>
+                    <TableCell>
+                      <RowActions
+                        onView={() => router.push(`/admin/products/combo/${c.id}/view`)}
+                        onEdit={() => router.push(`/admin/products/combo/${c.id}/edit`)}
+                        onDelete={() => setDeleteId(c.id)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
           <TablePagination currentPage={page} totalPages={totalPages} totalItems={filtered.length} itemsPerPage={PER_PAGE} onPageChange={setPage} />

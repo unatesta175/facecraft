@@ -9,10 +9,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { adminApi } from '@/lib/admin-api';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { assetsApi } from '@/lib/assets-api';
+import { AdminImageUpload, useAdminImageUpload } from '@/components/admin/admin-image-upload';
 
 export default function KioskNewPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: '', username: '', password: '', confirmPassword: '', description: '', status: 'ACTIVE' });
+  const { file, removeExisting, onImageChange } = useAdminImageUpload();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -21,9 +26,27 @@ export default function KioskNewPage() {
     if (form.password !== form.confirmPassword) { setErr('Passwords do not match'); return; }
     setErr('');
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'Kiosk Created', description: `Kiosk "${form.name}" created successfully.` });
-    router.push('/admin/kiosks');
+    try {
+      let profileImageUrl: string | null = null;
+      if (file) {
+        profileImageUrl = await assetsApi.uploadCatalogImage('profiles', file);
+      }
+      await adminApi.createKiosk({
+        name: form.name,
+        username: form.username,
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        description: form.description || null,
+        status: form.status,
+        profileImageUrl,
+      });
+      toast({ title: 'Kiosk Created', description: `Kiosk "${form.name}" created successfully.` });
+      router.push('/admin/kiosks');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -51,6 +74,12 @@ export default function KioskNewPage() {
               <SelectContent><SelectItem value="ACTIVE">Active</SelectItem><SelectItem value="INACTIVE">Inactive</SelectItem></SelectContent>
             </Select>
           </div>
+          <AdminImageUpload
+            label="Kiosk Image"
+            file={file}
+            removeExisting={removeExisting}
+            onChange={onImageChange}
+          />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
             <Button type="submit" disabled={saving} className="bg-[--color-gold] hover:bg-[--color-gold]/90 text-white">{saving ? 'Creating…' : 'Create Kiosk'}</Button>

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
@@ -8,27 +8,61 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_ULTRA_OBJECTS, MOCK_OBJECTS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { resolveImageField } from '@/lib/assets-api';
+import { AdminImageUpload, useAdminImageUpload } from '@/components/admin/admin-image-upload';
 
 export default function UltraObjectEditPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const uo = MOCK_ULTRA_OBJECTS.find((o) => o.id === params.id) ?? MOCK_ULTRA_OBJECTS[0];
-  const [form, setForm] = useState({ title: uo.title, description: uo.description ?? '', status: uo.status });
-  const [selectedObjects, setSelectedObjects] = useState<string[]>(uo.objectIds);
+  const { data: uo, isLoading, error } = useAdminData(() => adminApi.getUltraObject(params.id), [params.id]);
+  const { data: objects } = useAdminData(() => adminApi.getObjects(), []);
+  const [form, setForm] = useState<{ title: string; description: string; status: string } | null>(null);
+  const [selectedObjects, setSelectedObjects] = useState<string[]>([]);
+  const { file, removeExisting, onImageChange } = useAdminImageUpload();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (uo) {
+      setForm({ title: uo.title, description: uo.description ?? '', status: uo.status });
+      setSelectedObjects(uo.objectIds);
+    }
+  }, [uo]);
 
   const toggleObject = (id: string) => setSelectedObjects((prev) => prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]);
 
   const confirmUpdate = async () => {
+    if (!form || !uo) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Ultra Object Updated', description: `"${form.title}" updated successfully.` });
-    setConfirmOpen(false);
-    router.push('/admin/ultra-objects');
+    try {
+      const imageUrl = await resolveImageField('ultra-objects', file, removeExisting, Boolean(uo.imageUrl));
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        description: form.description || null,
+        status: form.status,
+        objectIds: selectedObjects,
+      };
+      if (imageUrl !== undefined) payload.imageUrl = imageUrl;
+
+      await adminApi.updateUltraObject(params.id, payload);
+      toast({ title: 'Ultra Object Updated', description: `"${form.title}" updated successfully.` });
+      router.push('/admin/ultra-objects');
+    } catch (err) {
+      toast({ title: 'Update Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
   };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!uo || !form) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
+
+  const objectList = objects ?? [];
 
   return (
     <AdminLayout>
@@ -48,30 +82,30 @@ export default function UltraObjectEditPage({ params }: { params: { id: string }
               </Select>
             </div>
             <div className="space-y-2"><Label>Description</Label><Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-            <div className="space-y-2">
-              <Label>Change Image</Label>
-              <div className="border-2 border-dashed border-[--color-border] rounded-lg p-6 text-center hover:border-[--color-gold] transition-colors cursor-pointer">
-                <Upload className="h-6 w-6 text-[--color-text-secondary] mx-auto mb-1" />
-                <p className="text-sm text-[--color-text-secondary]">Click to change image</p>
-              </div>
-            </div>
+            <AdminImageUpload
+              label="Ultra Object Image"
+              existingUrl={uo.imageUrl}
+              file={file}
+              removeExisting={removeExisting}
+              onChange={onImageChange}
+            />
           </div>
           <div className="bg-white border border-[--color-border] rounded-xl p-6 space-y-4">
             <h2 className="text-sm font-semibold text-[--color-text-primary]">Object Masters</h2>
             {selectedObjects.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {selectedObjects.map((oid) => {
-                  const obj = MOCK_OBJECTS.find((o) => o.id === oid);
+                  const obj = objectList.find((o) => o.id === oid);
                   return (
                     <span key={oid} className="inline-flex items-center gap-1.5 bg-[--color-gold-tint] text-[--color-gold-tint-text] text-xs font-medium px-2.5 py-1 rounded-full">
-                      {obj?.title}<button type="button" onClick={() => toggleObject(oid)}><X className="h-3 w-3" /></button>
+                      {obj?.title ?? oid}<button type="button" onClick={() => toggleObject(oid)}><X className="h-3 w-3" /></button>
                     </span>
                   );
                 })}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-[--color-border] rounded-lg p-3">
-              {MOCK_OBJECTS.map((o) => (
+              {objectList.map((o) => (
                 <button key={o.id} type="button" onClick={() => toggleObject(o.id)}
                   className={`text-left text-xs px-3 py-2 rounded-lg border transition-colors ${selectedObjects.includes(o.id) ? 'border-[--color-gold] bg-[--color-gold-tint] text-[--color-gold-tint-text]' : 'border-[--color-border] hover:bg-[--color-surface-muted] text-[--color-text-primary]'}`}>
                   {o.title}

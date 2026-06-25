@@ -8,27 +8,38 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Monitor, TrendingUp, Receipt } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_ORDERS, MOCK_KIOSKS } from '@/lib/mock-data';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { adminApi } from '@/lib/admin-api';
 
 const PER_PAGE = 10;
 
 export default function KioskReportPage() {
+  const { data: ordersData, isLoading: ordersLoading, reload: reloadOrders } = useAdminData(() => adminApi.getOrders(), []);
+  const { data: kiosksData, isLoading: kiosksLoading, reload: reloadKiosks } = useAdminData(() => adminApi.getKiosks(), []);
+  const orders = ordersData ?? [];
+  const kiosks = kiosksData ?? [];
+  const isLoading = ordersLoading || kiosksLoading;
+  const reload = () => {
+    reloadOrders();
+    reloadKiosks();
+  };
+
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filterKiosk, setFilterKiosk] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
 
-  const completed = MOCK_ORDERS.filter((o) => o.paymentStatus === 'COMPLETED');
-  const totalAmount = MOCK_ORDERS.reduce((s, o) => s + Number(o.price), 0);
+  const completed = orders.filter((o) => o.paymentStatus === 'COMPLETED');
+  const totalAmount = orders.reduce((s, o) => s + Number(o.price), 0);
 
   const stats = [
-    { label: 'Total Orders', value: MOCK_ORDERS.length, icon: Monitor },
+    { label: 'Total Orders', value: orders.length, icon: Monitor },
     { label: 'Total Transactions', value: completed.length, icon: Receipt },
     { label: 'Total Amount', value: `RM ${totalAmount.toFixed(2)}`, icon: TrendingUp },
   ];
 
-  const filtered = MOCK_ORDERS.filter((o) => {
+  const filtered = orders.filter((o) => {
     const q = search.toLowerCase();
     const matchSearch = !q || o.kioskName.toLowerCase().includes(q) || o.orderCode.toLowerCase().includes(q);
     const matchKiosk = !filterKiosk || o.kioskName === filterKiosk;
@@ -65,7 +76,7 @@ export default function KioskReportPage() {
               <SelectTrigger className="w-44"><SelectValue placeholder="All Kiosks" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="">All Kiosks</SelectItem>
-                {MOCK_KIOSKS.map((k) => <SelectItem key={k.id} value={k.name}>{k.name}</SelectItem>)}
+                {kiosks.map((k) => <SelectItem key={k.id} value={k.name}>{k.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -87,7 +98,7 @@ export default function KioskReportPage() {
               </SelectContent>
             </Select>
           </div>
-          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => toast({ title: 'Refreshed' })} onExport={() => toast({ title: 'Exporting…' })} searchPlaceholder="Search kiosk or order ID…" />
+          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => { reload(); toast({ title: 'Refreshed' }); }} onExport={() => toast({ title: 'Exporting…' })} searchPlaceholder="Search kiosk or order ID…" />
           <Table>
             <TableHeader>
               <TableRow>
@@ -101,17 +112,31 @@ export default function KioskReportPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((o, i) => (
-                <TableRow key={o.id}>
-                  <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
-                  <TableCell className="font-medium">{o.kioskName}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{o.date}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{o.time}</TableCell>
-                  <TableCell><StatusBadge status={o.paymentType} /></TableCell>
-                  <TableCell className="font-medium">RM {Number(o.price).toFixed(2)}</TableCell>
-                  <TableCell><StatusBadge status={o.paymentStatus} /></TableCell>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    Loading...
+                  </TableCell>
                 </TableRow>
-              ))}
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    No orders found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((o, i) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
+                    <TableCell className="font-medium">{o.kioskName}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{o.date}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{o.time}</TableCell>
+                    <TableCell><StatusBadge status={o.paymentType} /></TableCell>
+                    <TableCell className="font-medium">RM {Number(o.price).toFixed(2)}</TableCell>
+                    <TableCell><StatusBadge status={o.paymentStatus} /></TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
           <TablePagination currentPage={page} totalPages={Math.max(1, Math.ceil(filtered.length / PER_PAGE))} totalItems={filtered.length} itemsPerPage={PER_PAGE} onPageChange={setPage} />

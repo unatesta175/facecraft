@@ -4,14 +4,20 @@ import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Pencil } from 'lucide-react';
-import { MOCK_SIZES } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
 
 export default function SizeViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const size = MOCK_SIZES.find((s) => s.id === params.id) ?? MOCK_SIZES[0];
+  const { data: size, isLoading, error } = useAdminData(() => adminApi.getSize(params.id), [params.id]);
+
   const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="space-y-1.5"><Label className="text-[--color-text-secondary] text-xs uppercase tracking-wide">{label}</Label><div className="text-sm font-medium text-[--color-text-primary] bg-[--color-surface-muted] rounded-lg px-3 py-2.5 border border-[--color-border]">{value}</div></div>
   );
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!size) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
+
   return (
     <AdminLayout>
       <div className="p-8 max-w-md space-y-6">

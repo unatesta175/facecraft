@@ -1,73 +1,149 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, X, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, RotateCcw, X, Check, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DEFAULT_PHOTO_TRANSFORM,
+  KioskFramedImage,
+  type PhotoTransform,
+} from '@/components/kiosk/kiosk-framed-image';
 
 interface PreviewModalProps {
   photos: Array<{ id: string; url: string }>;
+  frameUrl?: string | null;
   isOpen: boolean;
   onClose: () => void;
   onApply: () => void;
 }
 
-export function PreviewModal({ photos, isOpen, onClose, onApply }: PreviewModalProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
+type DragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originX: number;
+  originY: number;
+};
 
-  // Validate photos array
-  if (!isOpen || !photos || photos.length === 0) {
+function getPhotoTransform(map: Record<string, PhotoTransform>, photoId: string): PhotoTransform {
+  return map[photoId] ?? DEFAULT_PHOTO_TRANSFORM;
+}
+
+export function PreviewModal({ photos, frameUrl = null, isOpen, onClose, onApply }: PreviewModalProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [transforms, setTransforms] = useState<Record<string, PhotoTransform>>({});
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<DragState | null>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  const currentPhoto = photos[currentIndex];
+  const currentTransform = currentPhoto
+    ? getPhotoTransform(transforms, currentPhoto.id)
+    : DEFAULT_PHOTO_TRANSFORM;
+
+  const updateCurrentTransform = useCallback(
+    (patch: Partial<PhotoTransform>) => {
+      if (!currentPhoto) return;
+      setTransforms((prev) => ({
+        ...prev,
+        [currentPhoto.id]: {
+          ...getPhotoTransform(prev, currentPhoto.id),
+          ...patch,
+        },
+      }));
+    },
+    [currentPhoto]
+  );
+
+  if (!isOpen || !photos?.length || !currentPhoto) {
     return null;
   }
 
-  const currentPhoto = photos[currentIndex];
+  const resetCurrentTransform = () => {
+    setTransforms((prev) => ({
+      ...prev,
+      [currentPhoto.id]: { ...DEFAULT_PHOTO_TRANSFORM },
+    }));
+  };
 
   const handlePrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? photos.length - 1 : prev - 1));
-    resetTransforms();
   };
 
   const handleNext = () => {
     setCurrentIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1));
-    resetTransforms();
   };
 
   const handleZoomIn = () => {
-    setZoom((prev) => Math.min(prev + 0.2, 2));
+    updateCurrentTransform({ scale: Math.min(currentTransform.scale + 0.2, 3) });
   };
 
   const handleZoomOut = () => {
-    setZoom((prev) => Math.max(prev - 0.2, 0.5));
+    updateCurrentTransform({ scale: Math.max(currentTransform.scale - 0.2, 1) });
   };
 
   const handleRotate = () => {
-    setRotation((prev) => (prev + 90) % 360);
+    updateCurrentTransform({ rotation: (currentTransform.rotation + 90) % 360 });
   };
 
-  const resetTransforms = () => {
-    setZoom(1);
-    setRotation(0);
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentTransform.offsetX,
+      originY: currentTransform.offsetY,
+    };
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    updateCurrentTransform({
+      offsetX: drag.originX + (event.clientX - drag.startX),
+      offsetY: drag.originY + (event.clientY - drag.startY),
+    });
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    dragRef.current = null;
+    setIsDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const canPan =
+    currentTransform.scale > 1 ||
+    currentTransform.offsetX !== 0 ||
+    currentTransform.offsetY !== 0 ||
+    currentTransform.rotation !== 0;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="w-full max-w-5xl bg-white rounded-3xl overflow-hidden shadow-2xl"
+          className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl"
         >
-          {/* Header */}
-          <div className="bg-[#fafafa] px-6 md:px-8 py-5 border-b border-[#f0f0f0]">
+          <div className="border-b border-[#f0f0f0] bg-[#fafafa] px-6 py-5 md:px-8">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-jakarta text-xl md:text-2xl font-bold text-[#1f1b16]">
+                <h3 className="font-jakarta text-xl font-bold text-[#1f1b16] md:text-2xl">
                   Preview Your Photos
                 </h3>
-                <p className="font-nunito text-sm text-[#6b6b6b] mt-1">
+                <p className="mt-1 font-nunito text-sm text-[#6b6b6b]">
                   Photo {currentIndex + 1} of {photos.length}
                 </p>
               </div>
@@ -75,83 +151,104 @@ export function PreviewModal({ photos, isOpen, onClose, onApply }: PreviewModalP
                 onClick={onClose}
                 variant="ghost"
                 size="icon"
-                className="text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-white rounded-xl"
+                className="rounded-xl text-[#6b6b6b] hover:bg-white hover:text-[#1f1b16]"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
           </div>
 
-          {/* Photo Display Area */}
           <div className="relative bg-[#f9f9f7] p-6 md:p-8">
-            <div className="relative aspect-[4/3] bg-white rounded-2xl shadow-lg overflow-hidden border border-[#f0f0f0]">
-              {currentPhoto && (
-                <AnimatePresence mode="wait">
-                  <motion.img
-                    key={currentPhoto.id}
-                    initial={{ opacity: 0, x: 50 }}
-                    animate={{ 
-                      opacity: 1, 
-                      x: 0,
-                      scale: zoom,
-                      rotate: rotation,
-                    }}
-                    exit={{ opacity: 0, x: -50 }}
-                    transition={{ duration: 0.3 }}
-                    src={currentPhoto.url}
+            <div
+              ref={viewportRef}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerEnd}
+              onPointerCancel={handlePointerEnd}
+              className={`relative aspect-[4/3] touch-none overflow-hidden rounded-2xl border border-[#f0f0f0] bg-white shadow-lg select-none ${
+                isDragging ? 'cursor-grabbing' : canPan ? 'cursor-grab' : 'cursor-default'
+              }`}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentPhoto.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full w-full"
+                >
+                  <KioskFramedImage
+                    photoUrl={currentPhoto.url}
+                    frameUrl={frameUrl}
                     alt={`Photo ${currentIndex + 1}`}
-                    className="max-w-full max-h-full object-contain w-full h-full"
+                    photoTransform={currentTransform}
                   />
-                </AnimatePresence>
-              )}
+                </motion.div>
+              </AnimatePresence>
             </div>
+
+            <p className="mt-3 flex items-center justify-center gap-2 font-nunito text-xs text-[#9a9286] md:text-sm">
+              <Move className="h-4 w-4 shrink-0" />
+              Drag the photo to reposition. Use zoom and rotate, then apply when ready.
+            </p>
           </div>
 
-          {/* Controls */}
-          <div className="bg-white px-6 md:px-8 py-6 md:py-8">
-            {/* Navigation & Transform Controls */}
-            <div className="flex items-center justify-center gap-3 md:gap-4 mb-6">
+          <div className="bg-white px-6 py-6 md:px-8 md:py-8">
+            <div className="mb-6 flex items-center justify-center gap-3 md:gap-4">
               <Button
                 onClick={handlePrevious}
                 disabled={photos.length === 1}
                 size="lg"
-                className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white rounded-full w-12 h-12 md:w-14 md:h-14 p-0 shadow-md disabled:opacity-50"
+                className="h-12 w-12 rounded-full bg-gradient-to-r from-[#c9982f] to-[#b8872a] p-0 text-white shadow-md hover:from-[#b8872a] hover:to-[#a77824] disabled:opacity-50 md:h-14 md:w-14"
               >
                 <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
               </Button>
 
-              <div className="flex items-center gap-2 md:gap-3 bg-[#fafafa] rounded-2xl px-4 md:px-6 py-3 shadow-sm border border-[#f0f0f0]">
+              <div className="flex items-center gap-2 rounded-2xl border border-[#f0f0f0] bg-[#fafafa] px-4 py-3 shadow-sm md:gap-3 md:px-6">
                 <Button
                   onClick={handleZoomOut}
                   size="icon"
                   variant="ghost"
-                  className="text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-white w-9 h-9"
+                  disabled={currentTransform.scale <= 1}
+                  className="h-9 w-9 text-[#6b6b6b] hover:bg-white hover:text-[#1f1b16]"
                 >
                   <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
                 </Button>
-                
-                <span className="font-jakarta font-semibold text-[#1f1b16] min-w-[50px] md:min-w-[60px] text-center text-sm md:text-base">
-                  {Math.round(zoom * 100)}%
+
+                <span className="min-w-[50px] text-center font-jakarta text-sm font-semibold text-[#1f1b16] md:min-w-[60px] md:text-base">
+                  {Math.round(currentTransform.scale * 100)}%
                 </span>
-                
+
                 <Button
                   onClick={handleZoomIn}
                   size="icon"
                   variant="ghost"
-                  className="text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-white w-9 h-9"
+                  disabled={currentTransform.scale >= 3}
+                  className="h-9 w-9 text-[#6b6b6b] hover:bg-white hover:text-[#1f1b16]"
                 >
                   <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
                 </Button>
 
-                <div className="w-px h-6 md:h-8 bg-[#e0e0e0] mx-1 md:mx-2" />
+                <div className="mx-1 h-6 w-px bg-[#e0e0e0] md:mx-2 md:h-8" />
 
                 <Button
                   onClick={handleRotate}
                   size="icon"
                   variant="ghost"
-                  className="text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-white w-9 h-9"
+                  className="h-9 w-9 text-[#6b6b6b] hover:bg-white hover:text-[#1f1b16]"
                 >
                   <RotateCw className="h-4 w-4 md:h-5 md:w-5" />
+                </Button>
+
+                <Button
+                  onClick={resetCurrentTransform}
+                  size="icon"
+                  variant="ghost"
+                  title="Reset adjustments"
+                  className="h-9 w-9 text-[#6b6b6b] hover:bg-white hover:text-[#1f1b16]"
+                >
+                  <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
                 </Button>
               </div>
 
@@ -159,22 +256,19 @@ export function PreviewModal({ photos, isOpen, onClose, onApply }: PreviewModalP
                 onClick={handleNext}
                 disabled={photos.length === 1}
                 size="lg"
-                className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white rounded-full w-12 h-12 md:w-14 md:h-14 p-0 shadow-md disabled:opacity-50"
+                className="h-12 w-12 rounded-full bg-gradient-to-r from-[#c9982f] to-[#b8872a] p-0 text-white shadow-md hover:from-[#b8872a] hover:to-[#a77824] disabled:opacity-50 md:h-14 md:w-14"
               >
                 <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
               </Button>
             </div>
 
-            {/* Page Indicator */}
-            {photos.length > 1 && (
-              <div className="flex items-center justify-center gap-2 mb-6">
-                {photos.map((_, index) => (
+            {photos.length > 1 ? (
+              <div className="mb-6 flex items-center justify-center gap-2">
+                {photos.map((photo, index) => (
                   <button
-                    key={index}
-                    onClick={() => {
-                      setCurrentIndex(index);
-                      resetTransforms();
-                    }}
+                    key={photo.id}
+                    type="button"
+                    onClick={() => setCurrentIndex(index)}
                     className={`h-2 rounded-full transition-all ${
                       index === currentIndex
                         ? 'w-8 bg-gradient-to-r from-[#c9982f] to-[#b8872a]'
@@ -183,29 +277,23 @@ export function PreviewModal({ photos, isOpen, onClose, onApply }: PreviewModalP
                   />
                 ))}
               </div>
-            )}
+            ) : null}
 
-            {/* Instruction Text */}
-            <p className="text-center font-nunito text-sm md:text-base text-[#6b6b6b] mb-6 leading-relaxed max-w-2xl mx-auto">
-              Review each photo and adjust as needed. Click Apply when you're satisfied with your selections.
-            </p>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
                 onClick={onClose}
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto border-2 border-[#e0e0e0] text-[#1f1b16] hover:bg-[#f9f9f7] hover:border-[#c9982f] font-jakarta text-base md:text-lg px-8 py-6 rounded-2xl transition-all"
+                className="w-full rounded-2xl border-2 border-[#e0e0e0] px-8 py-6 font-jakarta text-base text-[#1f1b16] transition-all hover:border-[#c9982f] hover:bg-[#f9f9f7] md:text-lg sm:w-auto"
               >
                 <X className="mr-2 h-5 w-5" />
                 Cancel
               </Button>
-              
+
               <Button
                 onClick={onApply}
                 size="lg"
-                className="w-full sm:w-auto bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta text-base md:text-lg px-12 py-6 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+                className="w-full transform rounded-2xl bg-gradient-to-r from-[#c9982f] to-[#b8872a] px-12 py-6 font-jakarta text-base text-white shadow-lg transition-all hover:scale-105 hover:from-[#b8872a] hover:to-[#a77824] hover:shadow-xl md:text-lg sm:w-auto"
               >
                 <Check className="mr-2 h-5 w-5" />
                 Apply Photos

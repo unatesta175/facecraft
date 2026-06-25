@@ -8,6 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { adminApi } from '@/lib/admin-api';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { assetsApi } from '@/lib/assets-api';
+import { AdminImageUpload, useAdminImageUpload } from '@/components/admin/admin-image-upload';
 
 const ROLES = [
   { value: 'ADMIN', label: 'Admin' },
@@ -20,15 +24,42 @@ const ROLES = [
 export default function RoleNewPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: '', phone: '', email: '', locationArea: '', role: 'STAFF', staffCode: '', username: '', password: '', confirmPassword: '', status: 'ACTIVE' });
+  const { file, removeExisting, onImageChange } = useAdminImageUpload();
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) return;
+    if (form.password !== form.confirmPassword) {
+      toast({ title: 'Validation Error', description: 'Passwords do not match', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'User Created', description: `"${form.name}" created successfully.` });
-    router.push('/admin/roles');
+    try {
+      let profileImageUrl: string | null = null;
+      if (file) {
+        profileImageUrl = await assetsApi.uploadCatalogImage('profiles', file);
+      }
+      await adminApi.createUser({
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        locationArea: form.locationArea,
+        role: form.role,
+        staffCode: form.staffCode,
+        username: form.username,
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        status: form.status,
+        isPhotographer: false,
+        profileImageUrl,
+      });
+      toast({ title: 'User Created', description: `"${form.name}" created successfully.` });
+      router.push('/admin/roles');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -62,6 +93,12 @@ export default function RoleNewPage() {
             <div className="space-y-2"><Label>Password <span className="text-red-500">*</span></Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
             <div className="space-y-2"><Label>Confirm Password <span className="text-red-500">*</span></Label><Input type="password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required /></div>
           </div>
+          <AdminImageUpload
+            label="Profile Photo"
+            file={file}
+            removeExisting={removeExisting}
+            onChange={onImageChange}
+          />
           <div className="space-y-2">
             <Label>Status <span className="text-red-500">*</span></Label>
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>

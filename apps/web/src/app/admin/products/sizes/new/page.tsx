@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { adminApi } from '@/lib/admin-api';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function SizeNewPage() {
   const router = useRouter();
@@ -16,9 +18,18 @@ export default function SizeNewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Size Created', description: `Size ${form.height}" × ${form.width}" created successfully.` });
-    router.push('/admin/products/sizes');
+    try {
+      await adminApi.createSize({
+        height: Number(form.height),
+        width: Number(form.width),
+      });
+      toast({ title: 'Size Created', description: `Size ${form.height}" × ${form.width}" created successfully.` });
+      router.push('/admin/products/sizes');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

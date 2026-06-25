@@ -8,27 +8,37 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TrendingUp, Receipt } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_ORDERS, MOCK_USERS } from '@/lib/mock-data';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { adminApi } from '@/lib/admin-api';
 
 const PER_PAGE = 10;
 
 export default function StaffReportPage() {
+  const { data: ordersData, isLoading: ordersLoading, reload: reloadOrders } = useAdminData(() => adminApi.getOrders(), []);
+  const { data: staffData, isLoading: staffLoading, reload: reloadStaff } = useAdminData(() => adminApi.getUsers('STAFF'), []);
+  const orders = ordersData ?? [];
+  const staff = staffData ?? [];
+  const isLoading = ordersLoading || staffLoading;
+  const reload = () => {
+    reloadOrders();
+    reloadStaff();
+  };
+
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filterStaff, setFilterStaff] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
 
-  const staff = MOCK_USERS.filter((u) => u.role === 'STAFF');
-  const completed = MOCK_ORDERS.filter((o) => o.paymentStatus === 'COMPLETED');
-  const totalAmount = MOCK_ORDERS.reduce((s, o) => s + Number(o.price), 0);
+  const completed = orders.filter((o) => o.paymentStatus === 'COMPLETED');
+  const totalAmount = orders.reduce((s, o) => s + Number(o.price), 0);
   const stats = [
     { label: 'Total Sales', value: completed.length, icon: TrendingUp },
-    { label: 'Total Transactions', value: MOCK_ORDERS.length, icon: Receipt },
+    { label: 'Total Transactions', value: orders.length, icon: Receipt },
     { label: 'Total Amount', value: `RM ${totalAmount.toFixed(2)}`, icon: TrendingUp },
   ];
 
-  const filtered = MOCK_ORDERS.filter((o) => {
+  const filtered = orders.filter((o) => {
     const q = search.toLowerCase();
     const matchSearch = !q || o.orderCode.toLowerCase().includes(q) || o.staffId.toLowerCase().includes(q) || o.staffName.toLowerCase().includes(q);
     const matchStaff = !filterStaff || o.staffName === filterStaff;
@@ -87,7 +97,7 @@ export default function StaffReportPage() {
               </SelectContent>
             </Select>
           </div>
-          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => toast({ title: 'Refreshed' })} onExport={() => toast({ title: 'Exporting…' })} searchPlaceholder="Search Order ID or Staff…" />
+          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => { reload(); toast({ title: 'Refreshed' }); }} onExport={() => toast({ title: 'Exporting…' })} searchPlaceholder="Search Order ID or Staff…" />
           <Table>
             <TableHeader>
               <TableRow>
@@ -103,19 +113,33 @@ export default function StaffReportPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((o, i) => (
-                <TableRow key={o.id}>
-                  <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
-                  <TableCell className="font-mono text-xs">{o.orderCode}</TableCell>
-                  <TableCell className="text-sm font-medium">{o.staffId}</TableCell>
-                  <TableCell className="text-sm">{o.staffName}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{o.date}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{o.time}</TableCell>
-                  <TableCell><StatusBadge status={o.paymentType} /></TableCell>
-                  <TableCell className="font-medium">RM {Number(o.price).toFixed(2)}</TableCell>
-                  <TableCell><StatusBadge status={o.paymentStatus} /></TableCell>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    Loading...
+                  </TableCell>
                 </TableRow>
-              ))}
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    No orders found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((o, i) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
+                    <TableCell className="font-mono text-xs">{o.orderCode}</TableCell>
+                    <TableCell className="text-sm font-medium">{o.staffId}</TableCell>
+                    <TableCell className="text-sm">{o.staffName}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{o.date}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{o.time}</TableCell>
+                    <TableCell><StatusBadge status={o.paymentType} /></TableCell>
+                    <TableCell className="font-medium">RM {Number(o.price).toFixed(2)}</TableCell>
+                    <TableCell><StatusBadge status={o.paymentStatus} /></TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
           <TablePagination currentPage={page} totalPages={Math.max(1, Math.ceil(filtered.length / PER_PAGE))} totalItems={filtered.length} itemsPerPage={PER_PAGE} onPageChange={setPage} />

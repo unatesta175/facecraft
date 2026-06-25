@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, User, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { kioskApi, DemoAccounts } from '@/lib/kiosk-api';
+import { DemoCredentials } from '@/components/demo-credentials';
 
 export default function KioskLoginPage() {
   const router = useRouter();
@@ -15,10 +17,18 @@ export default function KioskLoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccounts | null>(null);
+
+  useEffect(() => {
+    kioskApi
+      .getDemoAccounts()
+      .then((response) => setDemoAccounts(response.data ?? null))
+      .catch(() => setDemoAccounts(null));
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!username || !password) {
       toast({
         title: 'Error',
@@ -30,26 +40,30 @@ export default function KioskLoginPage() {
 
     setIsLoading(true);
 
-    // Simulate authentication
-    setTimeout(() => {
-      if (username === 'staff' && password === 'password') {
-        toast({
-          title: 'Success',
-          description: 'Login successful! Redirecting...',
-        });
-        
-        setTimeout(() => {
-          router.push('/kiosk/home');
-        }, 1000);
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Invalid username or password',
-          variant: 'destructive',
-        });
-        setIsLoading(false);
+    try {
+      const response = await kioskApi.login(username, password);
+
+      if (!response.data?.kiosk) {
+        throw new Error('Login failed');
       }
-    }, 1500);
+
+      kioskApi.saveSession(response.data.kiosk);
+
+      toast({
+        title: 'Success',
+        description: `Welcome, ${response.data.kiosk.name}`,
+      });
+
+      router.push('/kiosk/home');
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.response?.data?.error?.message || 'Invalid username or password',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,7 +74,6 @@ export default function KioskLoginPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md px-6"
       >
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="mb-6">
             <svg
@@ -97,7 +110,6 @@ export default function KioskLoginPage() {
           </p>
         </div>
 
-        {/* Login Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -106,15 +118,14 @@ export default function KioskLoginPage() {
         >
           <div className="mb-6 text-center">
             <h2 className="font-jakarta text-2xl font-bold text-[#1f1b16] mb-2">
-              Staff Login
+              Kiosk Login
             </h2>
             <p className="font-nunito text-sm text-[#9a9286]">
-              Please sign in to access the kiosk
+              Sign in with your kiosk account from the database
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Username */}
             <div className="space-y-2">
               <label className="font-nunito text-sm font-medium text-[#1f1b16] block">
                 Username
@@ -123,7 +134,7 @@ export default function KioskLoginPage() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#9a9286]" />
                 <Input
                   type="text"
-                  placeholder="Enter your username"
+                  placeholder="Enter kiosk username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10 h-12 font-nunito bg-[#f7f6f3] border-[#e5e1d7] focus:border-[#d4af37] focus:ring-[#d4af37]/20"
@@ -132,7 +143,6 @@ export default function KioskLoginPage() {
               </div>
             </div>
 
-            {/* Password */}
             <div className="space-y-2">
               <label className="font-nunito text-sm font-medium text-[#1f1b16] block">
                 Password
@@ -153,16 +163,11 @@ export default function KioskLoginPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9286] hover:text-[#1f1b16] transition-colors"
                   disabled={isLoading}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
-            {/* Login Button */}
             <Button
               type="submit"
               disabled={isLoading}
@@ -182,21 +187,9 @@ export default function KioskLoginPage() {
             </Button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-[#f7f6f3] rounded-lg border border-[#e5e1d7]">
-            <p className="font-nunito text-xs text-[#9a9286] text-center mb-2">
-              Demo Credentials
-            </p>
-            <p className="font-mono text-xs text-[#1f1b16] text-center">
-              Username: <span className="font-semibold">staff</span>
-            </p>
-            <p className="font-mono text-xs text-[#1f1b16] text-center">
-              Password: <span className="font-semibold">password</span>
-            </p>
-          </div>
+          <DemoCredentials accounts={demoAccounts} variant="kiosk" />
         </motion.div>
 
-        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

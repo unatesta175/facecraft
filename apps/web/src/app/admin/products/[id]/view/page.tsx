@@ -5,12 +5,14 @@ import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Pencil } from 'lucide-react';
-import { MOCK_PRODUCTS, MOCK_SIZES } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { AdminImagePreview } from '@/components/admin/admin-image';
 
 export default function ProductViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const product = MOCK_PRODUCTS.find((p) => p.id === params.id) ?? MOCK_PRODUCTS[0];
-  const size = MOCK_SIZES.find((s) => s.id === product.sizeId);
+  const { data: product, isLoading, error } = useAdminData(() => adminApi.getProduct(params.id), [params.id]);
+  const size = product?.size;
 
   const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="space-y-1.5">
@@ -18,6 +20,9 @@ export default function ProductViewPage({ params }: { params: { id: string } }) 
       <div className="text-sm font-medium text-[--color-text-primary] bg-[--color-surface-muted] rounded-lg px-3 py-2.5 border border-[--color-border]">{value}</div>
     </div>
   );
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!product) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
 
   return (
     <AdminLayout>
@@ -34,6 +39,10 @@ export default function ProductViewPage({ params }: { params: { id: string } }) 
         </div>
 
         <div className="bg-white border border-[--color-border] rounded-xl p-6 space-y-5">
+          <div className="space-y-1.5">
+            <Label className="text-[--color-text-secondary] text-xs uppercase tracking-wide">Product Image</Label>
+            <AdminImagePreview src={product.imageUrl} alt={product.name} />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Product Name" value={product.name} />
             <Field label="Price" value={`RM ${Number(product.price).toFixed(2)}`} />

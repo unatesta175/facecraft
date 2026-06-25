@@ -27,6 +27,7 @@ lerna-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+credentials.txt
 
 # IDE
 .vscode/
@@ -36,13 +37,16 @@ lerna-debug.log*
 *~
 .DS_Store
 
-# Prisma
-apps/api/prisma/migrations/**/migration.sql
-
 # Temporary files
 tmp/
 temp/
 *.tmp
+update-admin-crud.txt
+picturessssss/
+
+# Migration data (may contain passwords)
+tools/migration/normalized/
+tools/migration/raw/*.json
 
 # OS
 Thumbs.db

@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -8,11 +8,29 @@ import {
   Camera, Frame, Users, Box, Layers, FileText, LogOut,
   ChevronDown, ChevronRight,
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { authApi, AuthUser, formatUserRole, getUserInitials } from '@/lib/auth-api';
 
 interface NavItem { label: string; href?: string; icon: any; items?: NavItem[]; }
+
+function isNavActive(pathname: string, href: string, siblingHrefs: string[] = []): boolean {
+  const candidates = siblingHrefs.length > 0 ? siblingHrefs : [href];
+
+  const matches = candidates.filter((candidate) => {
+    if (candidate === '/admin') return pathname === '/admin';
+    return pathname === candidate || pathname.startsWith(`${candidate}/`);
+  });
+
+  if (matches.length === 0) return false;
+
+  const bestMatch = matches.reduce((longest, current) =>
+    current.length > longest.length ? current : longest
+  );
+
+  return bestMatch === href;
+}
 
 const navigation: NavItem[] = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -63,20 +81,22 @@ function NavGroup({ item }: { item: NavItem }) {
       </button>
       {open && (
         <div className="mt-0.5 ml-3 pl-3 border-l border-[--color-border-subtle] space-y-0.5">
-          {item.items?.map((child) => <NavLeaf key={child.label} item={child} />)}
+          {item.items?.map((child) => (
+            <NavLeaf
+              key={child.label}
+              item={child}
+              siblingHrefs={item.items?.map((sibling) => sibling.href).filter(Boolean) as string[]}
+            />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function NavLeaf({ item }: { item: NavItem }) {
+function NavLeaf({ item, siblingHrefs = [] }: { item: NavItem; siblingHrefs?: string[] }) {
   const pathname = usePathname();
-  const isActive = item.href
-    ? item.href === '/admin'
-      ? pathname === '/admin'
-      : pathname.startsWith(item.href)
-    : false;
+  const isActive = item.href ? isNavActive(pathname, item.href, siblingHrefs) : false;
 
   return (
     <Link
@@ -96,10 +116,41 @@ function NavLeaf({ item }: { item: NavItem }) {
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    authApi
+      .getCurrentUser()
+      .then((response) => {
+        if (!cancelled && response.data) {
+          setCurrentUser(response.data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          router.push('/login');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Still redirect if logout request fails.
+    }
     router.push('/login');
   };
+
+  const displayName = currentUser?.name ?? '...';
+  const displayRole = currentUser ? formatUserRole(currentUser.role) : '...';
+  const initials = currentUser ? getUserInitials(currentUser.name) : '...';
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">
@@ -144,17 +195,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2.5 hover:bg-[--color-surface-muted] rounded-lg px-3 py-1.5 transition-colors">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-xs">TM</AvatarFallback>
+                {currentUser?.profileImageUrl ? (
+                  <AvatarImage src={currentUser.profileImageUrl} alt={displayName} className="object-cover" />
+                ) : null}
+                <AvatarFallback className="text-xs bg-[--color-gold-tint] text-[--color-gold-tint-text]">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="text-left">
-                <p className="text-sm font-medium text-[--color-text-primary] leading-tight">Thiviya</p>
-                <p className="text-xs text-[--color-text-secondary] leading-tight">Manager</p>
+                <p className="text-sm font-medium text-[--color-text-primary] leading-tight">{displayName}</p>
+                <p className="text-xs text-[--color-text-secondary] leading-tight">{displayRole}</p>
               </div>
               <ChevronDown className="h-4 w-4 text-[--color-text-secondary]" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-[--color-danger-text]">
                 Logout
               </DropdownMenuItem>

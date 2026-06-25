@@ -9,10 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_SIZES } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function ProductNewPage() {
   const router = useRouter();
+  const { data: sizes } = useAdminData(() => adminApi.getSizes(), []);
   const [form, setForm] = useState({ name: '', price: '', description: '', productType: '', photoLimit: '1', sizeId: '', status: 'ACTIVE' });
   const [saving, setSaving] = useState(false);
 
@@ -20,9 +23,23 @@ export default function ProductNewPage() {
     e.preventDefault();
     if (!form.name || !form.price || !form.productType) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'Product Created', description: `"${form.name}" has been successfully created.` });
-    router.push('/admin/products');
+    try {
+      await adminApi.createProduct({
+        name: form.name,
+        price: Number(form.price),
+        description: form.description || null,
+        productType: form.productType,
+        photoLimit: Number(form.photoLimit),
+        sizeId: form.sizeId || null,
+        status: form.status,
+      });
+      toast({ title: 'Product Created', description: `"${form.name}" has been successfully created.` });
+      router.push('/admin/products');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -78,7 +95,7 @@ export default function ProductNewPage() {
                 <SelectTrigger><SelectValue placeholder="Select size…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {MOCK_SIZES.map((s) => <SelectItem key={s.id} value={s.id}>{s.height} × {s.width}</SelectItem>)}
+                  {(sizes ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.height} × {s.width}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

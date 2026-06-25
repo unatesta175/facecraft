@@ -8,19 +8,51 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { adminApi } from '@/lib/admin-api';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { assetsApi } from '@/lib/assets-api';
+import { AdminImageUpload, useAdminImageUpload } from '@/components/admin/admin-image-upload';
 
 export default function PhotographerNewPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: '', phone: '', email: '', locationArea: '', username: '', password: '', confirmPassword: '', status: 'ACTIVE', deletePermission: 'NO' });
+  const { file, removeExisting, onImageChange } = useAdminImageUpload();
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) return;
+    if (form.password !== form.confirmPassword) {
+      toast({ title: 'Validation Error', description: 'Passwords do not match', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'Photographer Created', description: `"${form.name}" added successfully.` });
-    router.push('/admin/photographers');
+    try {
+      let profileImageUrl: string | null = null;
+      if (file) {
+        profileImageUrl = await assetsApi.uploadCatalogImage('profiles', file);
+      }
+      await adminApi.createUser({
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        locationArea: form.locationArea,
+        username: form.username,
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        status: form.status,
+        isPhotographer: true,
+        deletePermission: form.deletePermission === 'YES',
+        staffCode: form.username,
+        role: 'STAFF',
+        profileImageUrl,
+      });
+      toast({ title: 'Photographer Created', description: `"${form.name}" added successfully.` });
+      router.push('/admin/photographers');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -60,6 +92,12 @@ export default function PhotographerNewPage() {
               </Select>
             </div>
           </div>
+          <AdminImageUpload
+            label="Profile Photo"
+            file={file}
+            removeExisting={removeExisting}
+            onChange={onImageChange}
+          />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
             <Button type="submit" disabled={saving} className="bg-[--color-gold] hover:bg-[--color-gold]/90 text-white">{saving ? 'Creating…' : 'Create Photographer'}</Button>

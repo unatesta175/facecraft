@@ -2,51 +2,61 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Trash2, QrCode, CreditCard, Banknote, Check, ArrowLeft, Tag, Package, Sparkles, Printer } from 'lucide-react';
+import { ShoppingCart, Trash2, QrCode, CreditCard, Banknote, Check, ArrowLeft, Tag, Package, Sparkles, Printer, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock cart data
-const CART_ITEMS = [
-  {
-    id: 'pkg-1',
-    name: 'Classic Memories',
-    description: 'Perfect for capturing special moments',
-    price: 299,
-    quantity: 1,
-    image: '/packages/classic.png',
-    products: [
-      { name: '8x10 Print', count: 2 },
-      { name: '5x7 Print', count: 2 },
-      { name: 'Digital Copy', count: 1 },
-    ],
-  },
-];
+import { useKioskCart } from '@/hooks/use-kiosk-cart';
+import { kioskApi, type KioskOrderResult } from '@/lib/kiosk-api';
+import type { KioskCartPackage } from '@/lib/kiosk-cart';
 
 interface PaymentModalProps {
   total: number;
   onClose: () => void;
-  onPaymentSuccess: () => void;
+  onPaymentSuccess: (order: KioskOrderResult) => void;
+  onConfirmPayment: (params: {
+    paymentType: 'QR' | 'CARD' | 'CASH';
+    staffCode?: string;
+  }) => Promise<KioskOrderResult>;
 }
 
-function PaymentModal({ total, onClose, onPaymentSuccess }: PaymentModalProps) {
+function PaymentModal({ total, onClose, onPaymentSuccess, onConfirmPayment }: PaymentModalProps) {
+  const { toast } = useToast();
   const [selectedMethod, setSelectedMethod] = useState<'qr' | 'card' | 'cash' | null>(null);
   const [staffId, setStaffId] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handlePayment = () => {
-    if ((selectedMethod === 'qr' || selectedMethod === 'cash') && !staffId) {
-      alert('Please enter Staff ID');
+  const handlePayment = async () => {
+    if (!selectedMethod) return;
+
+    if ((selectedMethod === 'qr' || selectedMethod === 'cash') && !staffId.trim()) {
+      toast({
+        title: 'Staff ID required',
+        description: 'Please enter Staff ID for verification.',
+        variant: 'destructive',
+      });
       return;
     }
 
     setIsProcessing(true);
-    setTimeout(() => {
-      onPaymentSuccess();
-    }, 2000);
+    try {
+      const paymentType =
+        selectedMethod === 'qr' ? 'QR' : selectedMethod === 'card' ? 'CARD' : 'CASH';
+      const order = await onConfirmPayment({
+        paymentType,
+        staffCode: staffId.trim() || undefined,
+      });
+      onPaymentSuccess(order);
+    } catch {
+      setIsProcessing(false);
+      toast({
+        title: 'Payment failed',
+        description: 'Unable to complete payment. Please check staff ID and try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -231,54 +241,155 @@ function PaymentModal({ total, onClose, onPaymentSuccess }: PaymentModalProps) {
 export default function CartPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [cartItems] = useState(CART_ITEMS);
+  const { hydrated, items: cartItems, removeFromCart, clearCart } = useKioskCart();
   const [discountCode, setDiscountCode] = useState('');
-  const [discount, setDiscount] = useState(0);
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number } | null>(null);
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
-  const [orderNumber, setOrderNumber] = useState('');
+  const [completedOrder, setCompletedOrder] = useState<KioskOrderResult | null>(null);
   const [paymentDate, setPaymentDate] = useState('');
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal - discount;
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+  const discount = appliedDiscount ? Math.min(appliedDiscount.amount, subtotal) : 0;
+  const total = Math.max(0, subtotal - discount);
+
+  const handleRemoveItem = (item: KioskCartPackage) => {
+    removeFromCart(item.id);
+    if (cartItems.length === 1) {
+      setAppliedDiscount(null);
+      setDiscountCode('');
+    }
+    toast({
+      title: 'Removed from cart',
+      description: `${item.name} has been removed from your cart.`,
+    });
+  };
+
+  const handleApplyDiscount = async () => {
+    const code = discountCode.trim();
+    if (!code) {
+      toast({
+        title: 'Enter a code',
+        description: 'Please enter a discount code before applying.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsApplyingDiscount(true);
+    try {
+      const response = await kioskApi.validateDiscount(code);
+      const discountData = response.data;
+      if (!discountData) {
+        throw new Error('Invalid discount');
+      }
+
+      setAppliedDiscount({
+        code: discountData.code,
+        amount: discountData.amount,
+      });
+      toast({
+        title: 'Discount applied!',
+        description: `RM ${Math.min(discountData.amount, subtotal).toFixed(2)} off has been applied to your order.`,
+      });
+    } catch {
+      setAppliedDiscount(null);
+      toast({
+        title: 'Invalid code',
+        description: 'The discount code you entered is not valid.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsApplyingDiscount(false);
+    }
+  };
+
+  const buildCheckoutPayload = () => {
+    const session = kioskApi.getSession();
+    if (!session) {
+      throw new Error('Kiosk session not found');
+    }
+
+    return {
+      kioskId: session.id,
+      discountCode: appliedDiscount?.code,
+      items: cartItems.map((item) => ({
+        packageId: item.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        products: item.products.map((product) => ({
+          productId: product.id,
+          name: product.name,
+          photoCount: product.photoCount,
+          quantity: product.quantity,
+          assignments: product.assignments.map((assignment) => ({
+            imageId: assignment.imageId,
+            imageUrl: assignment.imageUrl,
+            filename: assignment.filename,
+          })),
+        })),
+      })),
+    };
+  };
+
+  const handleConfirmPayment = async ({
+    paymentType,
+    staffCode,
+  }: {
+    paymentType: 'QR' | 'CARD' | 'CASH';
+    staffCode?: string;
+  }) => {
+    const response = await kioskApi.createOrder({
+      ...buildCheckoutPayload(),
+      paymentType,
+      staffCode,
+    });
+
+    if (!response.data) {
+      throw new Error('Order creation failed');
+    }
+
+    return response.data;
+  };
+
+  const handlePaymentSuccess = (order: KioskOrderResult) => {
+    setCompletedOrder(order);
+    setPaymentDate(
+      new Date().toLocaleString('en-MY', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    );
+    setShowPaymentModal(false);
+    setShowReceipt(true);
+    clearCart();
+    setAppliedDiscount(null);
+    setDiscountCode('');
+  };
 
   const handlePrintReceipt = () => {
     window.print();
   };
 
-  const handleApplyDiscount = () => {
-    // Mock discount validation
-    if (discountCode.toUpperCase() === 'SAVE10') {
-      setDiscount(subtotal * 0.1);
-      toast({
-        title: 'Discount applied!',
-        description: '10% discount has been applied to your order',
-      });
-    } else {
-      toast({
-        title: 'Invalid code',
-        description: 'The discount code you entered is not valid',
-        variant: 'destructive',
-      });
-    }
-  };
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen bg-[#f9f9f7] flex items-center justify-center p-8">
+        <p className="font-nunito text-[#6b6b6b]">Loading cart...</p>
+      </div>
+    );
+  }
 
-  const handlePaymentSuccess = () => {
-    const newOrderNumber = `FC${Date.now().toString().slice(-6)}`;
-    const newPaymentDate = new Date().toLocaleString('en-MY', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    setOrderNumber(newOrderNumber);
-    setPaymentDate(newPaymentDate);
-    setShowPaymentModal(false);
-    setShowReceipt(true);
-  };
-
-  if (showReceipt) {
+  if (showReceipt && completedOrder) {
+    const receiptItems = completedOrder.items;
+    const receiptSubtotal = completedOrder.subtotal;
+    const receiptDiscount = completedOrder.discount;
+    const receiptTotal = completedOrder.price;
+    const orderNumber = completedOrder.orderCode;
     return (
       <>
         {/* Print-only Receipt - Hidden on screen */}
@@ -303,31 +414,30 @@ export default function CartPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Payment:</span>
-                <span>PAID</span>
+                <span>{completedOrder.paymentType} - PAID</span>
               </div>
             </div>
 
             {/* Items */}
             <div style={{ borderTop: '2px dashed #000', borderBottom: '2px dashed #000', padding: '15px 0', marginBottom: '15px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px' }}>ORDER DETAILS</h3>
-              {cartItems.map((item, index) => (
+              {receiptItems.map((item, index) => (
                 <div key={index} style={{ marginBottom: '15px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                     <strong>{item.name}</strong>
                     <strong>RM {item.price.toFixed(2)}</strong>
                   </div>
-                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '8px' }}>
-                    {item.description}
-                  </div>
+                  {item.description ? (
+                    <div style={{ fontSize: '10px', color: '#666', marginBottom: '8px' }}>
+                      {item.description}
+                    </div>
+                  ) : null}
                   <div style={{ fontSize: '10px', marginLeft: '10px' }}>
-                    {item.products.map((product, idx) => (
-                      <div key={idx} style={{ marginBottom: '3px' }}>
-                        • {product.count}x {product.name}
+                    {item.products.map((product) => (
+                      <div key={product.id} style={{ marginBottom: '3px' }}>
+                        • {product.assignments.length}/{product.photoCount} {product.name}
                       </div>
                     ))}
-                  </div>
-                  <div style={{ fontSize: '10px', marginTop: '5px', marginLeft: '10px' }}>
-                    Quantity: {item.quantity}
                   </div>
                 </div>
               ))}
@@ -337,17 +447,17 @@ export default function CartPage() {
             <div style={{ marginBottom: '20px', fontSize: '11px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span>Subtotal:</span>
-                <span>RM {subtotal.toFixed(2)}</span>
+                <span>RM {receiptSubtotal.toFixed(2)}</span>
               </div>
-              {discount > 0 && (
+              {receiptDiscount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#28a745' }}>
                   <span>Discount:</span>
-                  <span>-RM {discount.toFixed(2)}</span>
+                  <span>-RM {receiptDiscount.toFixed(2)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold', paddingTop: '10px', borderTop: '1px solid #000' }}>
                 <span>TOTAL PAID:</span>
-                <span>RM {total.toFixed(2)}</span>
+                <span>RM {receiptTotal.toFixed(2)}</span>
               </div>
             </div>
 
@@ -432,7 +542,7 @@ export default function CartPage() {
               <div className="flex items-center justify-between">
                 <span className="font-nunito text-sm text-[#6b6b6b]">Total Paid</span>
                 <span className="font-jakarta text-xl font-bold bg-gradient-to-r from-[#c9982f] to-[#b8872a] bg-clip-text text-transparent">
-                  RM {total.toFixed(2)}
+                  RM {receiptTotal.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -520,14 +630,39 @@ export default function CartPage() {
               </h3>
 
               <div className="space-y-6">
-                {cartItems.map((item) => (
+                {cartItems.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <ShoppingCart className="mx-auto mb-4 h-12 w-12 text-[#c9982f]" />
+                    <p className="font-jakarta text-lg font-semibold text-[#1f1b16] mb-2">
+                      Your cart is empty
+                    </p>
+                    <p className="font-nunito text-sm text-[#6b6b6b] mb-6">
+                      Add packages from the shop to get started.
+                    </p>
+                    <Button
+                      onClick={() => router.push('/kiosk/shop')}
+                      className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta rounded-xl"
+                    >
+                      Back to Shop
+                    </Button>
+                  </div>
+                ) : (
+                  cartItems.map((item) => (
                   <div
                     key={item.id}
                     className="group"
                   >
-                    <div className="flex items-start gap-4 pb-4 border-b border-[#f0f0f0]">
-                      <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-[#fbf3df] to-[#f7f0d8] flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <Package className="h-10 w-10 md:h-12 md:w-12 text-[#c9982f]" />
+                    <div className="flex items-start gap-4 pb-4 border-b border-[#f0f0f0] last:border-b-0 last:pb-0">
+                      <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-[#fbf3df] to-[#f7f0d8] flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Package className="h-10 w-10 md:h-12 md:w-12 text-[#c9982f]" />
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -536,35 +671,57 @@ export default function CartPage() {
                             <h4 className="font-jakarta text-lg md:text-xl font-bold text-[#1f1b16] mb-1">
                               {item.name}
                             </h4>
-                            <p className="font-nunito text-sm text-[#6b6b6b]">
-                              {item.description}
-                            </p>
+                            {item.description ? (
+                              <p className="font-nunito text-sm text-[#6b6b6b]">
+                                {item.description}
+                              </p>
+                            ) : null}
                           </div>
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => handleRemoveItem(item)}
                             className="text-[#ff6b6b] hover:text-[#ee5a52] hover:bg-[#fff0f0] rounded-xl flex-shrink-0"
                           >
                             <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
                           </Button>
                         </div>
 
-                        {/* Product List */}
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {item.products.map((product, idx) => (
-                            <Badge
-                              key={idx}
-                              className="bg-[#fafafa] text-[#1f1b16] border border-[#e0e0e0] font-nunito text-xs"
+                        <div className="space-y-2 mb-3">
+                          {item.products.map((product) => (
+                            <div
+                              key={product.id}
+                              className="flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-[#fafafa] p-3"
                             >
-                              {product.count}x {product.name}
-                            </Badge>
+                              {product.imageUrl ? (
+                                <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[#f0f0f0] bg-white">
+                                  <img
+                                    src={product.imageUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[#f0f0f0] bg-white">
+                                  <ImageOff className="h-4 w-4 text-[#9a9286]" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-jakarta text-sm font-semibold text-[#1f1b16]">
+                                  {product.name}
+                                </p>
+                                <p className="font-nunito text-xs text-[#6b6b6b]">
+                                  {product.assignments.length} / {product.photoCount} photo(s) assigned
+                                </p>
+                              </div>
+                              <Badge className="bg-white text-[#1f1b16] border border-[#e0e0e0] font-nunito text-xs">
+                                Qty {product.quantity}
+                              </Badge>
+                            </div>
                           ))}
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <Badge className="bg-gradient-to-r from-[#fbf3df] to-[#f7f0d8] text-[#8a6a1f] border-[#e0d0a0] font-nunito">
-                            Quantity: {item.quantity}
-                          </Badge>
+                        <div className="flex items-center justify-end">
                           <span className="font-jakarta text-xl md:text-2xl font-bold bg-gradient-to-r from-[#c9982f] to-[#b8872a] bg-clip-text text-transparent">
                             RM {item.price.toFixed(2)}
                           </span>
@@ -572,7 +729,8 @@ export default function CartPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
             </motion.div>
           </div>
@@ -596,15 +754,26 @@ export default function CartPage() {
                     placeholder="Enter code"
                     value={discountCode}
                     onChange={(e) => setDiscountCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        void handleApplyDiscount();
+                      }
+                    }}
                     className="flex-1 font-jakarta h-11 bg-[#fafafa] border-[#e0e0e0] focus:border-[#c9982f]"
                   />
                   <Button
-                    onClick={handleApplyDiscount}
-                    className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta px-6 rounded-xl shadow-sm"
+                    onClick={() => void handleApplyDiscount()}
+                    disabled={isApplyingDiscount || cartItems.length === 0}
+                    className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta px-6 rounded-xl shadow-sm disabled:opacity-50"
                   >
-                    Apply
+                    {isApplyingDiscount ? 'Applying...' : 'Apply'}
                   </Button>
                 </div>
+                {appliedDiscount && (
+                  <p className="mt-3 font-nunito text-sm text-[#56b881]">
+                    Code <span className="font-semibold">{appliedDiscount.code}</span> applied
+                  </p>
+                )}
               </motion.div>
 
               {/* Order Summary */}
@@ -651,7 +820,8 @@ export default function CartPage() {
 
                 <Button
                   onClick={() => setShowPaymentModal(true)}
-                  className="w-full mt-6 bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta text-lg py-7 rounded-2xl shadow-md hover:shadow-lg transition-all"
+                  disabled={cartItems.length === 0}
+                  className="w-full mt-6 bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta text-lg py-7 rounded-2xl shadow-md hover:shadow-lg transition-all disabled:opacity-50"
                 >
                   Proceed to Payment
                 </Button>
@@ -667,6 +837,7 @@ export default function CartPage() {
           <PaymentModal
             total={total}
             onClose={() => setShowPaymentModal(false)}
+            onConfirmPayment={handleConfirmPayment}
             onPaymentSuccess={handlePaymentSuccess}
           />
         )}

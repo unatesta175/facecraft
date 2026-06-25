@@ -5,6 +5,13 @@ export const loginSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+export const usernameLoginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+export const kioskLoginSchema = usernameLoginSchema;
+
 export const registerPhotographerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -46,6 +53,36 @@ export const addToCartSchema = z.object({
 
 export const applyDiscountSchema = z.object({
   code: z.string().min(1, 'Discount code is required'),
+});
+
+export const kioskCheckoutAssignmentSchema = z.object({
+  imageId: z.string().min(1),
+  imageUrl: z.string().url(),
+  filename: z.string().min(1),
+});
+
+export const kioskCheckoutProductSchema = z.object({
+  productId: z.string().uuid(),
+  name: z.string().min(1),
+  photoCount: z.number().int().positive(),
+  quantity: z.number().int().positive(),
+  assignments: z.array(kioskCheckoutAssignmentSchema),
+});
+
+export const kioskCheckoutItemSchema = z.object({
+  packageId: z.string().uuid(),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  price: z.number().nonnegative(),
+  products: z.array(kioskCheckoutProductSchema).min(1),
+});
+
+export const kioskCreateOrderSchema = z.object({
+  kioskId: z.string().uuid(),
+  paymentType: z.enum(['QR', 'CARD', 'CASH']),
+  staffCode: z.string().optional(),
+  discountCode: z.string().optional(),
+  items: z.array(kioskCheckoutItemSchema).min(1, 'Cart must contain at least one package'),
 });
 
 export const createOrderSchema = z.object({
@@ -115,12 +152,15 @@ export const facialSearchSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type UsernameLoginInput = z.infer<typeof usernameLoginSchema>;
+export type KioskLoginInput = z.infer<typeof kioskLoginSchema>;
 export type RegisterPhotographerInput = z.infer<typeof registerPhotographerSchema>;
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 export type SearchPhotosInput = z.infer<typeof searchPhotosSchema>;
 export type CreateCartInput = z.infer<typeof createCartSchema>;
 export type AddToCartInput = z.infer<typeof addToCartSchema>;
 export type ApplyDiscountInput = z.infer<typeof applyDiscountSchema>;
+export type KioskCreateOrderInput = z.infer<typeof kioskCreateOrderSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;

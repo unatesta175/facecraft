@@ -19,6 +19,9 @@ import { packageRouter } from './routes/package.routes';
 import { cartRouter } from './routes/cart.routes';
 import { orderRouter } from './routes/order.routes';
 import { discountRouter } from './routes/discount.routes';
+import { adminRouter } from './routes/admin.routes';
+import { assetsRouter } from './routes/assets.routes';
+import { photographerRouter } from './routes/photographer.routes';
 
 export function createApp() {
   const app = express();
@@ -62,6 +65,9 @@ export function createApp() {
   app.use('/api/v1/carts', cartRouter);
   app.use('/api/v1/orders', orderRouter);
   app.use('/api/v1/discounts', discountRouter);
+  app.use('/api/v1/admin', adminRouter);
+  app.use('/api/v1/assets', assetsRouter);
+  app.use('/api/v1/photographer', photographerRouter);
 
   app.use(errorHandler);
 

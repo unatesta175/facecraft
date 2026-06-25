@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
@@ -9,22 +9,71 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_USERS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { resolveImageField } from '@/lib/assets-api';
+import { AdminImageUpload, useAdminImageUpload } from '@/components/admin/admin-image-upload';
 
 export default function PhotographerEditPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const user = MOCK_USERS.find((u) => u.id === params.id) ?? MOCK_USERS.find((u) => u.role === 'STAFF')!;
-  const [form, setForm] = useState({ name: user.name, phone: user.phone ?? '', email: user.email, locationArea: user.locationArea ?? '', username: user.username, password: '', confirmPassword: '', status: user.status, deletePermission: user.deletePermission ? 'YES' : 'NO' });
+  const { data: user, isLoading, error } = useAdminData(() => adminApi.getUser(params.id), [params.id]);
+  const [form, setForm] = useState<{ name: string; phone: string; email: string; locationArea: string; username: string; password: string; confirmPassword: string; status: string; deletePermission: string } | null>(null);
+  const { file, removeExisting, onImageChange } = useAdminImageUpload();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      setForm({
+        name: user.name,
+        phone: user.phone ?? '',
+        email: user.email,
+        locationArea: user.locationArea ?? '',
+        username: user.username,
+        password: '',
+        confirmPassword: '',
+        status: user.status,
+        deletePermission: user.deletePermission ? 'YES' : 'NO',
+      });
+    }
+  }, [user]);
+
   const confirmUpdate = async () => {
+    if (!form || !user) return;
+    if (form.password && form.password !== form.confirmPassword) {
+      toast({ title: 'Validation Error', description: 'Passwords do not match', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'Photographer Updated', description: `"${form.name}" updated successfully.` });
-    setConfirmOpen(false);
-    router.push('/admin/photographers');
+    try {
+      const profileImageUrl = await resolveImageField('profiles', file, removeExisting, Boolean(user.profileImageUrl));
+      const payload: Record<string, unknown> = {
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        locationArea: form.locationArea,
+        username: form.username,
+        status: form.status,
+        isPhotographer: true,
+        deletePermission: form.deletePermission === 'YES',
+        ...(form.password ? { password: form.password, confirmPassword: form.confirmPassword } : {}),
+      };
+      if (profileImageUrl !== undefined) payload.profileImageUrl = profileImageUrl;
+
+      await adminApi.updateUser(params.id, payload);
+      toast({ title: 'Photographer Updated', description: `"${form.name}" updated successfully.` });
+      router.push('/admin/photographers');
+    } catch (err) {
+      toast({ title: 'Update Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
   };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!user || !form) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
 
   return (
     <AdminLayout>
@@ -63,6 +112,13 @@ export default function PhotographerEditPage({ params }: { params: { id: string 
               </Select>
             </div>
           </div>
+          <AdminImageUpload
+            label="Profile Photo"
+            existingUrl={user.profileImageUrl}
+            file={file}
+            removeExisting={removeExisting}
+            onChange={onImageChange}
+          />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
             <Button type="submit" className="bg-[--color-gold] hover:bg-[--color-gold]/90 text-white">Update Photographer</Button>

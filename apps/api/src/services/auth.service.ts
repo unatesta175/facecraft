@@ -74,6 +74,40 @@ export class AuthService {
         username: user.username,
         staffCode: user.staffCode,
         role: user.role,
+        isPhotographer: user.isPhotographer,
+      },
+      token,
+    };
+  }
+
+  async loginByUsername(username: string, password: string) {
+    const user = await prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (!user || user.status !== 'ACTIVE') {
+      throw new AuthenticationError('Invalid username or password');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isPasswordValid) {
+      throw new AuthenticationError('Invalid username or password');
+    }
+
+    logger.info({ userId: user.id, username }, 'User logged in');
+
+    const token = this.generateToken(user.id);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+        staffCode: user.staffCode,
+        role: user.role,
+        isPhotographer: user.isPhotographer,
       },
       token,
     };
@@ -97,6 +131,8 @@ export class AuthService {
       role: user.role,
       status: user.status,
       deletePermission: user.deletePermission,
+      isPhotographer: user.isPhotographer,
+      profileImageUrl: user.profileImageUrl,
     };
   }
 

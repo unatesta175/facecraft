@@ -5,14 +5,21 @@ import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Pencil } from 'lucide-react';
-import { MOCK_KIOSKS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { AdminImagePreview } from '@/components/admin/admin-image';
 
 export default function KioskViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const kiosk = MOCK_KIOSKS.find((k) => k.id === params.id) ?? MOCK_KIOSKS[0];
+  const { data: kiosk, isLoading, error } = useAdminData(() => adminApi.getKiosk(params.id), [params.id]);
+
   const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="space-y-1.5"><Label className="text-[--color-text-secondary] text-xs uppercase tracking-wide">{label}</Label><div className="text-sm font-medium text-[--color-text-primary] bg-[--color-surface-muted] rounded-lg px-3 py-2.5 border border-[--color-border]">{value}</div></div>
   );
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!kiosk) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
+
   return (
     <AdminLayout>
       <div className="p-8 max-w-2xl space-y-6">
@@ -22,6 +29,10 @@ export default function KioskViewPage({ params }: { params: { id: string } }) {
           <Button onClick={() => router.push(`/admin/kiosks/${kiosk.id}/edit`)} className="bg-[--color-gold] hover:bg-[--color-gold]/90 text-white"><Pencil className="h-4 w-4 mr-2" />Edit</Button>
         </div>
         <div className="bg-white border border-[--color-border] rounded-xl p-6 space-y-5">
+          <div className="space-y-1.5">
+            <Label className="text-[--color-text-secondary] text-xs uppercase tracking-wide">Profile Photo</Label>
+            <AdminImagePreview src={kiosk.profileImageUrl} alt={kiosk.name} className="max-h-40" />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Kiosk Name" value={kiosk.name} />
             <Field label="Username" value={kiosk.username} />

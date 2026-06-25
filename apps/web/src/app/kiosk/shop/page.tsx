@@ -1,53 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Plus, Minus, Info, Wand2, Check, AlertCircle, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Info, Wand2, Check, AlertCircle, ArrowLeft, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { AIPhotoEditorModal } from '@/components/kiosk/ai-photo-editor-modal';
 import { PhotoFrameModal } from '@/components/kiosk/photo-frame-modal';
-
-// Mock data
-const PACKAGES = [
-  {
-    id: 'pkg-1',
-    name: 'Classic Memories',
-    description: 'Perfect for capturing special moments',
-    image: '/packages/classic.png',
-    price: 299,
-    products: [
-      { id: 'prod-1', name: '8x10 Print', photoCount: 2, frame: 'Classic Border' },
-      { id: 'prod-2', name: '5x7 Print', photoCount: 2, frame: 'Vintage Gold' },
-      { id: 'prod-3', name: 'Digital Copy', photoCount: 1, frame: 'Modern Minimal' },
-    ],
-  },
-  {
-    id: 'pkg-2',
-    name: 'Premium Collection',
-    description: 'High-quality prints with premium frames',
-    image: '/packages/premium.png',
-    price: 499,
-    products: [
-      { id: 'prod-4', name: '11x14 Framed', photoCount: 1, frame: 'Premium Gold' },
-      { id: 'prod-5', name: '8x10 Canvas', photoCount: 2, frame: 'Canvas Wrap' },
-      { id: 'prod-6', name: 'Certificate', photoCount: 1, frame: 'Certificate Border' },
-    ],
-  },
-  {
-    id: 'pkg-3',
-    name: 'Deluxe Package',
-    description: 'Everything you need for your memories',
-    image: '/packages/deluxe.png',
-    price: 799,
-    products: [
-      { id: 'prod-7', name: '16x20 Canvas', photoCount: 1, frame: 'Large Canvas' },
-      { id: 'prod-8', name: '8x10 Album', photoCount: 4, frame: 'Album Style' },
-      { id: 'prod-9', name: 'Digital Collection', photoCount: 2, frame: 'Digital Frame' },
-    ],
-  },
-];
+import { kioskApi, type KioskShopPackage, type KioskShopProduct } from '@/lib/kiosk-api';
+import { useKioskCart } from '@/hooks/use-kiosk-cart';
 
 const SELECTED_IMAGES = [
   { id: 'img-1', url: 'https://picsum.photos/seed/201/400/600', filename: 'photo_001.png' },
@@ -57,32 +19,56 @@ const SELECTED_IMAGES = [
   { id: 'img-5', url: 'https://picsum.photos/seed/205/400/600', filename: 'photo_005.png' },
 ];
 
-interface ProductAssignment {
-  imageId: string;
-  imageUrl: string;
-  filename: string;
-}
-
 export default function ShopPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [cart, setCart] = useState<string[]>([]);
-  
-  // Track which images are assigned to which products: { pkgId: { productId: [assignments] } }
-  const [productAssignments, setProductAssignments] = useState<Record<string, Record<string, ProductAssignment[]>>>({});
-  
+  const {
+    cartPackageIds: cart,
+    productAssignments,
+    setProductAssignments,
+    addToCart,
+  } = useKioskCart();
+  const [packages, setPackages] = useState<KioskShopPackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [packagesError, setPackagesError] = useState<string | null>(null);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [imageQuantities, setImageQuantities] = useState<Record<string, number>>({});
   const [aiModalImage, setAiModalImage] = useState<string | null>(null);
-  const [frameModalData, setFrameModalData] = useState<{ 
-    pkg: typeof PACKAGES[0]; 
-    product: typeof PACKAGES[0]['products'][0];
+  const [frameModalData, setFrameModalData] = useState<{
+    pkg: KioskShopPackage;
+    product: KioskShopProduct;
     images: { id: string; url: string; filename: string }[];
   } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [pendingPackageId, setPendingPackageId] = useState<string | null>(null);
 
-  const handleAddProduct = (pkg: typeof PACKAGES[0], product: typeof PACKAGES[0]['products'][0]) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await kioskApi.getShopPackages();
+        if (cancelled) return;
+        setPackages(response.data ?? []);
+        setPackagesError(null);
+      } catch {
+        if (!cancelled) {
+          setPackages([]);
+          setPackagesError('Unable to load packages. Please try again.');
+        }
+      } finally {
+        if (!cancelled) {
+          setPackagesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleAddProduct = (pkg: KioskShopPackage, product: KioskShopProduct) => {
     // Check if there's an active package that's not in cart yet
     const activePackageId = Object.keys(productAssignments).find(pkgId => {
       // Check if this package has any assignments AND is NOT in cart yet
@@ -197,7 +183,7 @@ export default function ShopPage() {
     };
   };
 
-  const canAddToCart = (pkg: typeof PACKAGES[0]) => {
+  const canAddToCart = (pkg: KioskShopPackage) => {
     return pkg.products.every(product => {
       const progress = getProductProgress(pkg.id, product.id, product.photoCount);
       return progress.isComplete;
@@ -205,13 +191,16 @@ export default function ShopPage() {
   };
 
   const handleAddToCart = (pkgId: string) => {
-    if (!cart.includes(pkgId)) {
-      setCart(prev => [...prev, pkgId]);
-      toast({
-        title: 'Added to cart',
-        description: `Package added successfully!`,
-      });
-    }
+    if (cart.includes(pkgId)) return;
+
+    const pkg = packages.find((item) => item.id === pkgId);
+    if (!pkg || !canAddToCart(pkg)) return;
+
+    addToCart(pkg, productAssignments[pkgId] || {});
+    toast({
+      title: 'Added to cart',
+      description: 'Package added successfully!',
+    });
   };
 
   const handleClearPrevious = () => {
@@ -310,28 +299,51 @@ export default function ShopPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Packages */}
           <div className="lg:col-span-2 space-y-6">
-            {PACKAGES.map((pkg, index) => {
-              const isInCart = cart.includes(pkg.id);
-              const totalRequired = pkg.products.reduce((sum, p) => sum + p.photoCount, 0);
-              const totalAssigned = pkg.products.reduce((sum, p) => {
-                return sum + (productAssignments[pkg.id]?.[p.id]?.length || 0);
-              }, 0);
+            {packagesLoading ? (
+              <div className="rounded-2xl border border-[#f0f0f0] bg-white p-12 text-center shadow-md">
+                <p className="font-nunito text-[#6b6b6b]">Loading packages...</p>
+              </div>
+            ) : packagesError ? (
+              <div className="rounded-2xl border border-[#f0f0f0] bg-white p-12 text-center shadow-md">
+                <p className="font-nunito text-[#ff6b6b]">{packagesError}</p>
+              </div>
+            ) : packages.length === 0 ? (
+              <div className="rounded-2xl border border-[#f0f0f0] bg-white p-12 text-center shadow-md">
+                <p className="font-nunito text-[#6b6b6b]">No active packages available.</p>
+              </div>
+            ) : (
+              <>
+                {packages.map((pkg, index) => {
+                  const isInCart = cart.includes(pkg.id);
+                  const totalRequired = pkg.products.reduce((sum, p) => sum + p.photoCount, 0);
+                  const totalAssigned = pkg.products.reduce((sum, p) => {
+                    return sum + (productAssignments[pkg.id]?.[p.id]?.length || 0);
+                  }, 0);
+                  const progressPercent = totalRequired > 0 ? (totalAssigned / totalRequired) * 100 : 0;
 
-              return (
-                <motion.div
-                  key={pkg.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`bg-white rounded-2xl p-6 md:p-8 shadow-md border-2 transition-all ${
-                    isInCart
-                      ? 'border-[#c9982f] shadow-lg'
-                      : 'border-[#f0f0f0]'
-                  }`}
-                >
+                  return (
+                    <motion.div
+                      key={pkg.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className={`bg-white rounded-2xl p-6 md:p-8 shadow-md border-2 transition-all ${
+                        isInCart
+                          ? 'border-[#c9982f] shadow-lg'
+                          : 'border-[#f0f0f0]'
+                      }`}
+                    >
                   <div className="flex items-start gap-6 mb-6">
-                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl bg-gradient-to-br from-[#fbf3df] to-[#f7f0d8] flex items-center justify-center flex-shrink-0 shadow-sm">
-                      <ShoppingCart className="h-12 w-12 md:h-16 md:w-16 text-[#c9982f]" />
+                    <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#fbf3df] to-[#f7f0d8] shadow-sm md:h-32 md:w-32">
+                      {pkg.imageUrl ? (
+                        <img
+                          src={pkg.imageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ShoppingCart className="h-12 w-12 text-[#c9982f] md:h-16 md:w-16" />
+                      )}
                     </div>
                     
                     <div className="flex-1">
@@ -340,9 +352,11 @@ export default function ShopPage() {
                           <h3 className="font-jakarta text-xl md:text-2xl font-bold text-[#1f1b16]">
                             {pkg.name}
                           </h3>
-                          <p className="font-nunito text-sm text-[#6b6b6b] mt-1">
-                            {pkg.description}
-                          </p>
+                          {pkg.description ? (
+                            <p className="font-nunito text-sm text-[#6b6b6b] mt-1">
+                              {pkg.description}
+                            </p>
+                          ) : null}
                         </div>
                         <Button
                           variant="ghost"
@@ -355,7 +369,7 @@ export default function ShopPage() {
                       
                       <div className="flex items-baseline gap-2 mt-4">
                         <span className="font-jakarta text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#c9982f] to-[#b8872a] bg-clip-text text-transparent">
-                          RM {pkg.price}
+                          RM {pkg.price.toFixed(2)}
                         </span>
                         <span className="font-nunito text-sm text-[#9a9286]">
                           / package
@@ -377,7 +391,7 @@ export default function ShopPage() {
                     <div className="w-full bg-[#e0e0e0] rounded-full h-2">
                       <div
                         className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] h-2 rounded-full transition-all"
-                        style={{ width: `${(totalAssigned / totalRequired) * 100}%` }}
+                        style={{ width: `${progressPercent}%` }}
                       />
                     </div>
                   </div>
@@ -397,6 +411,19 @@ export default function ShopPage() {
                           }`}
                         >
                           <div className="flex items-center gap-3 flex-1">
+                            {product.imageUrl ? (
+                              <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-[#f0f0f0] bg-[#fafafa]">
+                                <img
+                                  src={product.imageUrl}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg border border-[#f0f0f0] bg-[#fafafa]">
+                                <ImageOff className="h-4 w-4 text-[#9a9286]" />
+                              </div>
+                            )}
                             {progress.isComplete && (
                               <div className="w-7 h-7 rounded-full bg-[#436b35] flex items-center justify-center flex-shrink-0 shadow-sm">
                                 <Check className="h-4 w-4 text-white" />
@@ -455,9 +482,11 @@ export default function ShopPage() {
                       )}
                     </Button>
                   </div>
-                </motion.div>
-              );
-            })}
+                    </motion.div>
+                  );
+                })}
+              </>
+            )}
           </div>
 
           {/* Right Column - Album */}
@@ -650,7 +679,7 @@ export default function ShopPage() {
         <PhotoFrameModal
           imageUrl={frameModalData.images[0]?.url || ''}
           productName={frameModalData.product.name}
-          frameName={frameModalData.product.frame}
+          frameName={frameModalData.pkg.name}
           photoCount={frameModalData.images.length}
           onSave={handleSaveFrame}
           onClose={() => setFrameModalData(null)}

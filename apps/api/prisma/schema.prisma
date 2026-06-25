@@ -80,18 +80,21 @@ model User {
   phone            String?
   locationArea     String?
   role             UserRole   @default(STAFF)
+  isPhotographer   Boolean    @default(false)
   deletePermission Boolean    @default(false)
   profileImageUrl  String?
   status           UserStatus @default(ACTIVE)
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  orders      Order[]      @relation("StaffOrders")
-  orderPhotos OrderPhoto[] @relation("PhotographerPhotos")
+  orders             Order[]             @relation("StaffOrders")
+  orderPhotos        OrderPhoto[]        @relation("PhotographerPhotos")
+  photographerPhotos PhotographerPhoto[] @relation("PhotographerUploads")
 
   @@index([username])
   @@index([role])
   @@index([status])
+  @@index([isPhotographer])
   @@map("users")
 }
 
@@ -265,6 +268,7 @@ model Order {
   paymentType   PaymentType   @default(CASH)
   price         Decimal       @db.Decimal(10, 2)
   paymentStatus PaymentStatus @default(PENDING)
+  cancellationReason String?  @db.Text
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -321,4 +325,23 @@ model OrderPhoto {
   @@index([frameId])
   @@index([expiresAt])
   @@map("order_photos")
+}
+
+model PhotographerPhoto {
+  id             String   @id @default(uuid())
+  photographerId String
+  s3Key          String
+  filename       String
+  contentType    String
+  fileSize       Int      @default(0)
+  width          Int?
+  height         Int?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  photographer User @relation("PhotographerUploads", fields: [photographerId], references: [id])
+
+  @@index([photographerId])
+  @@index([expiresAt])
+  @@map("photographer_photos")
 }

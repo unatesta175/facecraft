@@ -1,22 +1,91 @@
 'use client';
+
+import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin-layout';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Package, ShoppingBag, Camera, Monitor } from 'lucide-react';
-import { MOCK_ORDERS, MOCK_USERS, MOCK_KIOSKS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+
+type DashboardOrder = {
+  id: string;
+  orderCode: string;
+  kioskName: string;
+  date: string;
+  price: number;
+  paymentStatus: string;
+};
+
+type DashboardData = {
+  stats: {
+    totalOrders: number;
+    totalSales: number;
+    totalPhotographers: number;
+    totalKiosks: number;
+  };
+  recentOrders: DashboardOrder[];
+};
 
 export default function AdminDashboard() {
-  const totalOrders = MOCK_ORDERS.length;
-  const totalSales = MOCK_ORDERS.filter(o => o.paymentStatus === 'COMPLETED').reduce((s, o) => s + Number(o.price), 0);
-  const totalPhotographers = MOCK_USERS.filter(u => u.role === 'STAFF').length;
-  const totalKiosks = MOCK_KIOSKS.filter(k => k.status === 'ACTIVE').length;
-  const recentOrders = MOCK_ORDERS.slice(0, 8);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDashboard() {
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const response = await adminApi.getDashboard();
+        if (!cancelled && response) {
+          setData(response);
+        }
+      } catch {
+        if (!cancelled) {
+          setError('Failed to load dashboard data.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadDashboard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = [
-    { label: 'Total Orders', value: totalOrders, icon: ShoppingBag, color: 'gold' },
-    { label: 'Total Sales (RM)', value: `RM ${totalSales.toFixed(2)}`, icon: Package, color: 'chocolate' },
-    { label: 'Total Photographers', value: totalPhotographers, icon: Camera, color: 'gold' },
-    { label: 'Total Kiosks', value: totalKiosks, icon: Monitor, color: 'chocolate' },
+    {
+      label: 'Total Orders',
+      value: data?.stats.totalOrders ?? 0,
+      icon: ShoppingBag,
+      color: 'gold' as const,
+    },
+    {
+      label: 'Total Sales (RM)',
+      value: `RM ${(data?.stats.totalSales ?? 0).toFixed(2)}`,
+      icon: Package,
+      color: 'chocolate' as const,
+    },
+    {
+      label: 'Total Photographers',
+      value: data?.stats.totalPhotographers ?? 0,
+      icon: Camera,
+      color: 'gold' as const,
+    },
+    {
+      label: 'Total Kiosks',
+      value: data?.stats.totalKiosks ?? 0,
+      icon: Monitor,
+      color: 'chocolate' as const,
+    },
   ];
 
   return (
@@ -24,25 +93,41 @@ export default function AdminDashboard() {
       <div className="p-8 space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-[--color-text-primary]">Dashboard</h1>
-          <p className="text-sm text-[--color-text-secondary] mt-1">Welcome back! Here's an overview of your studio.</p>
+          <p className="text-sm text-[--color-text-secondary] mt-1">
+            Welcome back! Here&apos;s an overview of your studio.
+          </p>
         </div>
 
-        {/* Stat cards */}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           {stats.map((s) => (
             <div key={s.label} className="bg-white border border-[--color-border] rounded-xl p-5 space-y-3">
-              <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${s.color === 'gold' ? 'bg-[--color-gold-tint]' : 'bg-[--color-chocolate-tint]'}`}>
-                <s.icon className={`h-5 w-5 ${s.color === 'gold' ? 'text-[--color-gold]' : 'text-[--color-chocolate]'}`} />
+              <div
+                className={`w-11 h-11 rounded-lg flex items-center justify-center ${
+                  s.color === 'gold' ? 'bg-[--color-gold-tint]' : 'bg-[--color-chocolate-tint]'
+                }`}
+              >
+                <s.icon
+                  className={`h-5 w-5 ${
+                    s.color === 'gold' ? 'text-[--color-gold]' : 'text-[--color-chocolate]'
+                  }`}
+                />
               </div>
               <div>
                 <p className="text-xs text-[--color-text-secondary]">{s.label}</p>
-                <p className="text-2xl font-semibold text-[--color-text-primary] mt-0.5">{s.value}</p>
+                <p className="text-2xl font-semibold text-[--color-text-primary] mt-0.5">
+                  {isLoading ? '...' : s.value}
+                </p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Recent orders */}
         <div className="bg-white border border-[--color-border] rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-[--color-border]">
             <h2 className="text-base font-semibold text-[--color-text-primary]">Recent Orders</h2>
@@ -58,15 +143,31 @@ export default function AdminDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentOrders.map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs text-[--color-text-primary]">{o.orderCode}</TableCell>
-                  <TableCell className="text-sm">{o.kioskName}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{o.date}</TableCell>
-                  <TableCell className="text-sm font-medium">RM {Number(o.price).toFixed(2)}</TableCell>
-                  <TableCell><StatusBadge status={o.paymentStatus} /></TableCell>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    Loading orders...
+                  </TableCell>
                 </TableRow>
-              ))}
+              ) : data?.recentOrders.length ? (
+                data.recentOrders.map((o) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="font-mono text-xs text-[--color-text-primary]">{o.orderCode}</TableCell>
+                    <TableCell className="text-sm">{o.kioskName}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{o.date}</TableCell>
+                    <TableCell className="text-sm font-medium">RM {o.price.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={o.paymentStatus} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    No orders yet.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

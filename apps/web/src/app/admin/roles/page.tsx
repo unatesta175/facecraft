@@ -9,14 +9,18 @@ import { RowActions } from '@/components/admin/row-actions';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { User } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_USERS } from '@/lib/mock-data';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { adminApi } from '@/lib/admin-api';
+import { AdminImageThumb } from '@/components/admin/admin-image';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 const PER_PAGE = 10;
 
 export default function RolesPage() {
   const router = useRouter();
-  const [items, setItems] = useState(MOCK_USERS);
+  const { data: items, isLoading, reload } = useAdminData(() => adminApi.getRoleUsers(), [], []);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -24,16 +28,29 @@ export default function RolesPage() {
   const filtered = items.filter((u) => u.name.toLowerCase().includes(search.toLowerCase()) || u.staffCode.toLowerCase().includes(search.toLowerCase()));
   const rows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await adminApi.deleteUser(deleteId);
+      toast({ title: 'User Deleted' });
+      setDeleteId(null);
+      reload();
+    } catch (err) {
+      toast({ title: 'Delete Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="p-8 space-y-6">
         <PageHeader title="Role Master" subtitle="Manage all user accounts and roles" onCreate={() => router.push('/admin/roles/new')} />
         <div className="bg-white border border-[--color-border] rounded-xl overflow-hidden">
-          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => toast({ title: 'Refreshed' })} onExport={() => toast({ title: 'Exporting…' })} searchPlaceholder="Search name or staff code…" />
+          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => { reload(); toast({ title: 'Refreshed' }); }} onExport={() => toast({ title: 'Exporting…' })} searchPlaceholder="Search name or staff code…" />
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">#</TableHead>
+                <TableHead className="w-14">Photo</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>User Type</TableHead>
                 <TableHead>Username</TableHead>
@@ -46,26 +63,43 @@ export default function RolesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((u, i) => (
-                <TableRow key={u.id}>
-                  <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
-                  <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell className="text-sm"><span className="inline-block bg-[--color-surface-muted] rounded-full px-2 py-0.5 text-xs text-[--color-text-secondary]">{u.role}</span></TableCell>
-                  <TableCell className="text-sm font-mono text-[--color-text-secondary]">{u.username}</TableCell>
-                  <TableCell className="text-sm font-medium">{u.staffCode}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{u.phone}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{u.email}</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{u.locationArea}</TableCell>
-                  <TableCell><StatusBadge status={u.status} /></TableCell>
-                  <TableCell><RowActions onView={() => router.push(`/admin/roles/${u.id}/view`)} onEdit={() => router.push(`/admin/roles/${u.id}/edit`)} onDelete={() => setDeleteId(u.id)} /></TableCell>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    Loading...
+                  </TableCell>
                 </TableRow>
-              ))}
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    No users found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((u, i) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
+                    <TableCell>
+                      <AdminImageThumb src={u.profileImageUrl} alt={u.name} fallback={User} />
+                    </TableCell>
+                    <TableCell className="font-medium">{u.name}</TableCell>
+                    <TableCell className="text-sm"><span className="inline-block bg-[--color-surface-muted] rounded-full px-2 py-0.5 text-xs text-[--color-text-secondary]">{u.role}</span></TableCell>
+                    <TableCell className="text-sm font-mono text-[--color-text-secondary]">{u.username}</TableCell>
+                    <TableCell className="text-sm font-medium">{u.staffCode}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{u.phone}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{u.email}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{u.locationArea}</TableCell>
+                    <TableCell><StatusBadge status={u.status} /></TableCell>
+                    <TableCell><RowActions onView={() => router.push(`/admin/roles/${u.id}/view`)} onEdit={() => router.push(`/admin/roles/${u.id}/edit`)} onDelete={() => setDeleteId(u.id)} /></TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
           <TablePagination currentPage={page} totalPages={Math.max(1, Math.ceil(filtered.length / PER_PAGE))} totalItems={filtered.length} itemsPerPage={PER_PAGE} onPageChange={setPage} />
         </div>
       </div>
-      <ConfirmDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)} title="Delete User" description="Delete this user account permanently?" confirmLabel="Delete" onConfirm={() => { setItems((p) => p.filter((u) => u.id !== deleteId)); toast({ title: 'User Deleted' }); setDeleteId(null); }} />
+      <ConfirmDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)} title="Delete User" description="Delete this user account permanently?" confirmLabel="Delete" onConfirm={confirmDelete} />
     </AdminLayout>
   );
 }

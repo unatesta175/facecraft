@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
@@ -9,22 +9,40 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_FRAMES } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function FrameEditPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const frame = MOCK_FRAMES.find((f) => f.id === params.id) ?? MOCK_FRAMES[0];
-  const [form, setForm] = useState({ name: frame.name, status: frame.status });
+  const { data: frame, isLoading, error } = useAdminData(() => adminApi.getFrame(params.id), [params.id]);
+  const [form, setForm] = useState<{ name: string; status: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (frame) {
+      setForm({ name: frame.name, status: frame.status });
+    }
+  }, [frame]);
+
   const confirmUpdate = async () => {
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Frame Updated', description: `Frame "${form.name}" updated successfully.` });
-    setConfirmOpen(false);
-    router.push('/admin/frames');
+    if (!form) return;
+    try {
+      setSaving(true);
+      await adminApi.updateFrame(params.id, { name: form.name, status: form.status, imageUrl: null });
+      toast({ title: 'Frame Updated', description: `Frame "${form.name}" updated successfully.` });
+      router.push('/admin/frames');
+    } catch (err) {
+      toast({ title: 'Update Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
   };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!frame || !form) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
 
   return (
     <AdminLayout>

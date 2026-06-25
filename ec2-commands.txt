@@ -1,0 +1,11 @@
+# Copy and paste these commands into your EC2 SSH terminal
+
+cd /var/www/facecraft
+git pull origin main
+npm install --production=false
+npm run db:generate
+npm run db:migrate:deploy --workspace=apps/api
+npm run build
+pm2 restart facecraft-api facecraft-web
+pm2 status
+pm2 logs --lines 20

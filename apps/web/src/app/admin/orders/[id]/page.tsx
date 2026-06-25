@@ -1,43 +1,127 @@
 'use client';
-import { useState } from 'react';
+
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { StatusBadge } from '@/components/admin/status-badge';
-import { ConfirmDialog } from '@/components/admin/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Printer, Download, Image } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Printer, Download, ImageOff } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_ORDERS, MOCK_COMBOS } from '@/lib/mock-data';
+import { adminApi, type AdminOrderDetail } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { printComboPhotos, downloadComboPhotos } from '@/lib/order-photo-actions';
 
 export default function OrderDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const order = MOCK_ORDERS.find((o) => o.id === params.id) ?? MOCK_ORDERS[0];
-  const combo = MOCK_COMBOS[0];
-  const [status, setStatus] = useState(order.paymentStatus);
+  const { data: order, isLoading, error, reload } = useAdminData(
+    () => adminApi.getOrder(params.id),
+    [params.id]
+  );
+  const [status, setStatus] = useState('');
+  const [cancellationReason, setCancellationReason] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState('');
+  const [pendingStatus, setPendingStatus] = useState<'PENDING' | 'COMPLETED' | 'CANCELLED' | ''>('');
+  const [cancelReasonInput, setCancelReasonInput] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [downloadingComboId, setDownloadingComboId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (order) {
+      setStatus(order.paymentStatus);
+      setCancellationReason(order.cancellationReason ?? null);
+    }
+  }, [order]);
 
   const handleStatusChange = (val: string) => {
-    setPendingStatus(val);
+    setPendingStatus(val as 'PENDING' | 'COMPLETED' | 'CANCELLED');
+    setCancelReasonInput('');
     setConfirmOpen(true);
   };
 
-  const confirmStatusUpdate = () => {
-    setStatus(pendingStatus);
-    setConfirmOpen(false);
-    toast({ title: 'Status Updated', description: `Order status changed to ${pendingStatus}` });
+  const handleConfirmOpenChange = (open: boolean) => {
+    setConfirmOpen(open);
+    if (!open) {
+      setPendingStatus('');
+      setCancelReasonInput('');
+    }
   };
 
-  const mockPhotos = Array.from({ length: 4 }, (_, i) => ({
-    id: `photo-${i}`, folderLabel: `Photo Folder X ${i + 1}`,
-    imageUrl: `https://placehold.co/400x300/f7f6f3/9a9286?text=Photo+${i + 1}`,
-  }));
+  const confirmStatusUpdate = async () => {
+    if (!pendingStatus) return;
+
+    if (pendingStatus === 'CANCELLED' && !cancelReasonInput.trim()) {
+      toast({
+        title: 'Cancellation reason required',
+        description: 'Please provide a reason before cancelling this order.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    try {
+      const updated = await adminApi.updateOrderStatus(params.id, {
+        paymentStatus: pendingStatus,
+        cancellationReason:
+          pendingStatus === 'CANCELLED' ? cancelReasonInput.trim() : undefined,
+      });
+      setStatus(updated.paymentStatus);
+      setCancellationReason(updated.cancellationReason ?? null);
+      setConfirmOpen(false);
+      setPendingStatus('');
+      setCancelReasonInput('');
+      await reload();
+      toast({
+        title: 'Status updated',
+        description: `Order status changed to ${pendingStatus}.`,
+      });
+    } catch {
+      toast({
+        title: 'Update failed',
+        description: 'Unable to update order status. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleDownloadCombo = async (combo: AdminOrderDetail['orderCombos'][number]) => {
+    setDownloadingComboId(combo.id);
+    try {
+      await downloadComboPhotos(params.id, combo.id, combo.photos);
+      toast({
+        title: 'Download started',
+        description: `${combo.photos.length} photo(s) are downloading.`,
+      });
+    } catch {
+      toast({
+        title: 'Download failed',
+        description: 'Unable to download combo photos. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingComboId(null);
+    }
+  };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!order) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
 
   return (
     <AdminLayout>
       <div className="p-8 space-y-6 max-w-5xl">
-        {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Back
@@ -46,12 +130,8 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
             <h1 className="text-xl font-semibold text-[--color-text-primary]">Order Detail</h1>
             <p className="text-sm text-[--color-text-secondary]">{order.orderCode}</p>
           </div>
-          <Button variant="outline" className="text-[--color-chocolate]">
-            <Printer className="h-4 w-4 mr-2" /> Print Receipt
-          </Button>
         </div>
 
-        {/* Order Summary Card */}
         <div className="bg-white border border-[--color-border] rounded-xl p-6 grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
             { label: 'Order ID', value: order.orderCode },
@@ -84,57 +164,152 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
           ))}
         </div>
 
-        {/* Combo Card */}
-        <div className="bg-white border border-[--color-border] rounded-xl overflow-hidden">
-          <div className="px-6 py-4 bg-[--color-surface-muted] border-b border-[--color-border]">
-            <h2 className="text-sm font-semibold text-[--color-text-primary]">Combo Package</h2>
+        {status === 'CANCELLED' && cancellationReason ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[--color-danger-text] mb-2">
+              Cancellation Reason
+            </p>
+            <p className="text-sm text-[--color-text-primary] whitespace-pre-wrap">{cancellationReason}</p>
           </div>
-          <div className="p-6 flex gap-6">
-            <div className="w-24 h-24 rounded-lg bg-[--color-gold-tint] flex items-center justify-center flex-shrink-0">
-              <Image className="h-10 w-10 text-[--color-gold]" />
-            </div>
-            <div className="space-y-1">
-              <p className="font-semibold text-[--color-text-primary]">{combo.name}</p>
-              <p className="text-sm text-[--color-text-secondary]">RM {Number(combo.price).toFixed(2)}</p>
-              <p className="text-xs text-[--color-text-secondary]">Combo code: #1782112233117</p>
-              <p className="text-xs text-[--color-text-secondary]">{(combo as any).description ?? 'Combo package'}</p>
-            </div>
-          </div>
-        </div>
+        ) : null}
 
-        {/* Photo Folders */}
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold text-[--color-text-primary]">Photo Folders</h2>
-          {mockPhotos.map((photo) => (
-            <div key={photo.id} className="bg-white border border-[--color-border] rounded-xl overflow-hidden">
-              <div className="px-6 py-3 bg-[--color-surface-muted] border-b border-[--color-border] flex items-center justify-between">
-                <span className="text-sm font-medium text-[--color-text-primary]">{photo.folderLabel}</span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="text-[--color-chocolate]">
-                    <Download className="h-3.5 w-3.5 mr-1" /> Download
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-[--color-chocolate]">
-                    <Printer className="h-3.5 w-3.5 mr-1" /> Print
-                  </Button>
+        {order.orderCombos.map((combo) => (
+          <div key={combo.id} className="bg-white border border-[--color-border] rounded-xl overflow-hidden">
+            <div className="px-6 py-4 bg-[--color-surface-muted] border-b border-[--color-border] flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-[--color-text-primary]">{combo.comboName}</h2>
+                <p className="text-xs text-[--color-text-secondary] mt-1">
+                  {combo.comboCode} · RM {Number(combo.priceSnapshot).toFixed(2)} · {combo.photos.length} photo(s)
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[--color-chocolate]"
+                  disabled={combo.photos.length === 0 || downloadingComboId === combo.id}
+                  onClick={() => void handleDownloadCombo(combo)}
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  {downloadingComboId === combo.id ? 'Downloading...' : 'Download All'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[--color-chocolate]"
+                  disabled={combo.photos.length === 0}
+                  onClick={() => printComboPhotos(combo)}
+                >
+                  <Printer className="h-3.5 w-3.5 mr-1" /> Print
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex gap-4">
+                <div className="w-24 h-24 rounded-lg bg-[--color-gold-tint] overflow-hidden flex items-center justify-center flex-shrink-0">
+                  {combo.comboImageUrl ? (
+                    <img
+                      src={combo.comboImageUrl}
+                      alt={combo.comboName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImageOff className="h-8 w-8 text-[--color-gold]" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-[--color-text-primary]">{combo.comboName}</p>
+                  <p className="text-sm text-[--color-text-secondary]">
+                    {combo.descriptionSnapshot ?? 'Combo package'}
+                  </p>
                 </div>
               </div>
-              <div className="p-4">
-                <img src={photo.imageUrl} alt={photo.folderLabel} className="w-full h-48 object-cover rounded-lg" />
-              </div>
+
+              {combo.photos.length === 0 ? (
+                <p className="text-sm text-[--color-text-secondary]">No photos in this combo.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {combo.photos.map((photo) => (
+                    <div
+                      key={photo.id}
+                      className="rounded-lg border border-[--color-border] overflow-hidden bg-[--color-surface-muted]"
+                    >
+                      <div className="aspect-[4/3] bg-white">
+                        {photo.imageUrl ? (
+                          <img
+                            src={photo.imageUrl}
+                            alt={photo.filename}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <ImageOff className="h-8 w-8 text-[--color-text-secondary]" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-3 py-2">
+                        <p className="text-sm font-medium text-[--color-text-primary] truncate">
+                          {photo.productName ?? photo.folderLabel ?? photo.filename}
+                        </p>
+                        {photo.folderLabel && photo.productName ? (
+                          <p className="text-xs text-[--color-text-secondary] truncate">{photo.folderLabel}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="Update Order Status"
-        description={`Are you sure you want to change the status to "${pendingStatus}"?`}
-        confirmLabel="Update"
-        confirmVariant="gold"
-        onConfirm={confirmStatusUpdate}
-      />
+      <Dialog open={confirmOpen} onOpenChange={handleConfirmOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Order Status</DialogTitle>
+            <DialogDescription>
+              {pendingStatus === 'CANCELLED'
+                ? 'This order will be marked as cancelled. Please provide a reason.'
+                : `Are you sure you want to change the status to "${pendingStatus}"?`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingStatus === 'CANCELLED' ? (
+            <div className="space-y-2">
+              <Label htmlFor="cancellation-reason">Cancellation reason</Label>
+              <Textarea
+                id="cancellation-reason"
+                value={cancelReasonInput}
+                onChange={(e) => setCancelReasonInput(e.target.value)}
+                placeholder="Explain why this order is being cancelled..."
+                rows={4}
+              />
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleConfirmOpenChange(false)} disabled={isUpdatingStatus}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void confirmStatusUpdate()}
+              disabled={
+                isUpdatingStatus ||
+                (pendingStatus === 'CANCELLED' && !cancelReasonInput.trim())
+              }
+              className={
+                pendingStatus === 'CANCELLED'
+                  ? 'bg-[--color-danger-text] hover:bg-[--color-danger-text]/90 text-white'
+                  : 'bg-[--color-gold] hover:bg-[--color-gold]/90 text-white'
+              }
+            >
+              {isUpdatingStatus ? 'Updating...' : 'Update Status'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

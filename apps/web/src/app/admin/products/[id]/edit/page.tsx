@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
@@ -10,24 +10,59 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_PRODUCTS, MOCK_SIZES } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function ProductEditPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const product = MOCK_PRODUCTS.find((p) => p.id === params.id) ?? MOCK_PRODUCTS[0];
-  const [form, setForm] = useState({ name: product.name, price: String(product.price), description: product.description ?? '', productType: product.productType, photoLimit: String(product.photoLimit), sizeId: '', status: product.status });
+  const { data: product, isLoading, error } = useAdminData(() => adminApi.getProduct(params.id), [params.id]);
+  const { data: sizes } = useAdminData(() => adminApi.getSizes(), []);
+  const [form, setForm] = useState<{ name: string; price: string; description: string; productType: string; photoLimit: string; sizeId: string; status: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (product) {
+      setForm({
+        name: product.name,
+        price: String(product.price),
+        description: product.description ?? '',
+        productType: product.productType,
+        photoLimit: String(product.photoLimit),
+        sizeId: product.sizeId ?? '',
+        status: product.status,
+      });
+    }
+  }, [product]);
 
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); setConfirmOpen(true); };
 
   const confirmUpdate = async () => {
+    if (!form) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'Product Updated', description: `"${form.name}" has been successfully updated.` });
-    setConfirmOpen(false);
-    router.push('/admin/products');
+    try {
+      await adminApi.updateProduct(params.id, {
+        name: form.name,
+        price: Number(form.price),
+        description: form.description || null,
+        productType: form.productType,
+        photoLimit: Number(form.photoLimit),
+        sizeId: form.sizeId || null,
+        status: form.status,
+      });
+      toast({ title: 'Product Updated', description: `"${form.name}" has been successfully updated.` });
+      router.push('/admin/products');
+    } catch (err) {
+      toast({ title: 'Update Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
   };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!product || !form) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
 
   return (
     <AdminLayout>
@@ -79,7 +114,7 @@ export default function ProductEditPage({ params }: { params: { id: string } }) 
                 <SelectTrigger><SelectValue placeholder="Select size…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {MOCK_SIZES.map((s) => <SelectItem key={s.id} value={s.id}>{s.height} × {s.width}</SelectItem>)}
+                  {(sizes ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.height} × {s.width}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

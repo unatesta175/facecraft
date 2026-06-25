@@ -6,6 +6,7 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { v4 as uuidv4 } from 'uuid';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 
@@ -99,6 +100,48 @@ export class S3Service {
     }
   }
 
+  async getObjectBuffer(key: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    const result = await this.client.send(command);
+    const stream = result.Body;
+
+    if (!stream) {
+      throw new Error(`Empty S3 object: ${key}`);
+    }
+
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stream as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  async getObjectMetadata(key: string): Promise<{ contentLength: number; contentType?: string } | null> {
+    const command = new HeadObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    try {
+      const result = await this.client.send(command);
+      return {
+        contentLength: result.ContentLength ?? 0,
+        contentType: result.ContentType,
+      };
+    } catch (error: any) {
+      if (error.name === 'NotFound') {
+        return null;
+      }
+      logger.error({ error, key }, 'Failed to get S3 object metadata');
+      throw error;
+    }
+  }
+
   generateKey(prefix: string, ...parts: string[]): string {
     return [prefix, ...parts].join('/');
   }
@@ -106,6 +149,17 @@ export class S3Service {
   getPhotoKey(photographerId: string, eventId: string, photoId: string, filename: string): string {
     const ext = filename.split('.').pop();
     return this.generateKey('originals', photographerId, eventId, photoId, `original.${ext}`);
+  }
+
+  getPhotographerUploadKey(photographerId: string, photoId: string, filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+    return this.generateKey('originals', photographerId, photoId, `original.${ext}`);
+  }
+
+  getCatalogKey(category: string, filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+    const id = uuidv4();
+    return this.generateKey('catalog', category, `${id}.${ext}`);
   }
 
   getThumbnailKey(

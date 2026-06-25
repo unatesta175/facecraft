@@ -9,13 +9,15 @@ import { RowActions } from '@/components/admin/row-actions';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_SIZES } from '@/lib/mock-data';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { adminApi } from '@/lib/admin-api';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 const PER_PAGE = 10;
 
 export default function SizesPage() {
   const router = useRouter();
-  const [items, setItems] = useState(MOCK_SIZES);
+  const { data: items, isLoading, reload } = useAdminData(() => adminApi.getSizes(), [], []);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export default function SizesPage() {
         <PageHeader title="Size Master" subtitle="Manage product print sizes" onCreate={() => router.push('/admin/products/sizes/new')} />
 
         <div className="bg-white border border-[--color-border] rounded-xl overflow-hidden">
-          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => toast({ title: 'Refreshed' })} searchPlaceholder="Search dimensions…" />
+          <TableToolbar searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1); }} onRefresh={() => { reload(); toast({ title: 'Refreshed' }); }} searchPlaceholder="Search dimensions…" />
           <Table>
             <TableHeader>
               <TableRow>
@@ -42,27 +44,51 @@ export default function SizesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((s, i) => (
-                <TableRow key={s.id}>
-                  <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
-                  <TableCell className="font-medium">{s.height}"</TableCell>
-                  <TableCell className="font-medium">{s.width}"</TableCell>
-                  <TableCell className="text-sm text-[--color-text-secondary]">{new Date(s.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <RowActions
-                      onView={() => router.push(`/admin/products/sizes/${s.id}/view`)}
-                      onEdit={() => router.push(`/admin/products/sizes/${s.id}/edit`)}
-                      onDelete={() => setDeleteId(s.id)}
-                    />
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    Loading...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-8">
+                    No sizes found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((s, i) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
+                    <TableCell className="font-medium">{s.height}"</TableCell>
+                    <TableCell className="font-medium">{s.width}"</TableCell>
+                    <TableCell className="text-sm text-[--color-text-secondary]">{new Date(s.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <RowActions
+                        onView={() => router.push(`/admin/products/sizes/${s.id}/view`)}
+                        onEdit={() => router.push(`/admin/products/sizes/${s.id}/edit`)}
+                        onDelete={() => setDeleteId(s.id)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
           <TablePagination currentPage={page} totalPages={totalPages} totalItems={filtered.length} itemsPerPage={PER_PAGE} onPageChange={setPage} />
         </div>
       </div>
-      <ConfirmDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)} title="Delete Size" description="Delete this size? It will also affect linked products." confirmLabel="Delete" onConfirm={() => { setItems((p) => p.filter((s) => s.id !== deleteId)); toast({ title: 'Size Deleted' }); setDeleteId(null); }} />
+      <ConfirmDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)} title="Delete Size" description="Delete this size? It will also affect linked products." confirmLabel="Delete" onConfirm={async () => {
+        if (!deleteId) return;
+        try {
+          await adminApi.deleteSize(deleteId);
+          toast({ title: 'Size Deleted' });
+          setDeleteId(null);
+          reload();
+        } catch (err) {
+          toast({ title: 'Delete Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+        }
+      }} />
     </AdminLayout>
   );
 }

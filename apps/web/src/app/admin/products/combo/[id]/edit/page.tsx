@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin-layout';
 import { ConfirmDialog } from '@/components/admin/confirm-dialog';
@@ -10,25 +10,58 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, X, Package } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_COMBOS, MOCK_PRODUCTS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function ComboEditPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const combo = MOCK_COMBOS.find((c) => c.id === params.id) ?? MOCK_COMBOS[0];
-  const [form, setForm] = useState({ name: combo.name, price: String(combo.price), description: combo.description ?? '', status: combo.status });
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(['prod-01', 'prod-03']);
+  const { data: combo, isLoading, error } = useAdminData(() => adminApi.getCombo(params.id), [params.id]);
+  const { data: products } = useAdminData(() => adminApi.getProducts(), []);
+  const [form, setForm] = useState<{ name: string; price: string; description: string; status: string } | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (combo) {
+      setForm({
+        name: combo.name,
+        price: String(combo.price),
+        description: combo.description ?? '',
+        status: combo.status,
+      });
+      setSelectedProducts(combo.productIds);
+    }
+  }, [combo]);
 
   const toggleProduct = (id: string) => setSelectedProducts((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]);
 
   const confirmUpdate = async () => {
+    if (!form) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'Combo Updated', description: `"${form.name}" has been successfully updated.` });
-    setConfirmOpen(false);
-    router.push('/admin/products/combo');
+    try {
+      await adminApi.updateCombo(params.id, {
+        name: form.name,
+        price: Number(form.price),
+        description: form.description || null,
+        status: form.status,
+        items: selectedProducts.map(productId => ({ productId, quantity: 1 })),
+      });
+      toast({ title: 'Combo Updated', description: `"${form.name}" has been successfully updated.` });
+      router.push('/admin/products/combo');
+    } catch (err) {
+      toast({ title: 'Update Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setConfirmOpen(false);
+    }
   };
+
+  if (isLoading) return <AdminLayout><div className="p-8">Loading...</div></AdminLayout>;
+  if (!combo || !form) return <AdminLayout><div className="p-8">{error ?? 'Not found'}</div></AdminLayout>;
+
+  const productList = products ?? [];
 
   return (
     <AdminLayout>
@@ -74,17 +107,17 @@ export default function ComboEditPage({ params }: { params: { id: string } }) {
             {selectedProducts.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {selectedProducts.map((pid) => {
-                  const p = MOCK_PRODUCTS.find((x) => x.id === pid);
+                  const p = productList.find((x) => x.id === pid);
                   return (
                     <span key={pid} className="inline-flex items-center gap-1.5 bg-[--color-gold-tint] text-[--color-gold-tint-text] text-xs font-medium px-2.5 py-1 rounded-full">
-                      {p?.name}<button type="button" onClick={() => toggleProduct(pid)}><X className="h-3 w-3" /></button>
+                      {p?.name ?? pid}<button type="button" onClick={() => toggleProduct(pid)}><X className="h-3 w-3" /></button>
                     </span>
                   );
                 })}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto border border-[--color-border] rounded-lg p-3">
-              {MOCK_PRODUCTS.map((p, i) => (
+              {productList.map((p, i) => (
                 <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
                   className={`flex items-center gap-2 p-2 rounded-lg text-left text-xs border transition-colors ${selectedProducts.includes(p.id) ? 'border-[--color-gold] bg-[--color-gold-tint] text-[--color-gold-tint-text]' : 'border-[--color-border] hover:bg-[--color-surface-muted] text-[--color-text-primary]'}`}>
                   <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 ${i % 2 === 0 ? 'bg-[--color-gold-tint]' : 'bg-[--color-chocolate-tint]'}`}>

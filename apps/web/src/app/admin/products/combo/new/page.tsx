@@ -9,13 +9,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, X, Package } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { MOCK_PRODUCTS } from '@/lib/mock-data';
+import { adminApi } from '@/lib/admin-api';
+import { useAdminData } from '@/hooks/use-admin-data';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function ComboNewPage() {
   const router = useRouter();
+  const { data: products } = useAdminData(() => adminApi.getProducts(), []);
   const [form, setForm] = useState({ name: '', price: '', description: '', status: 'ACTIVE' });
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const productList = products ?? [];
 
   const toggleProduct = (id: string) => {
     setSelectedProducts((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]);
@@ -24,9 +29,21 @@ export default function ComboNewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast({ title: 'Combo Product Created', description: `"${form.name}" has been successfully created.` });
-    router.push('/admin/products/combo');
+    try {
+      await adminApi.createCombo({
+        name: form.name,
+        price: Number(form.price),
+        description: form.description || null,
+        status: form.status,
+        items: selectedProducts.map(productId => ({ productId, quantity: 1 })),
+      });
+      toast({ title: 'Combo Product Created', description: `"${form.name}" has been successfully created.` });
+      router.push('/admin/products/combo');
+    } catch (err) {
+      toast({ title: 'Create Failed', description: getApiErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -74,10 +91,10 @@ export default function ComboNewPage() {
             {selectedProducts.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {selectedProducts.map((pid) => {
-                  const p = MOCK_PRODUCTS.find((x) => x.id === pid);
+                  const p = productList.find((x) => x.id === pid);
                   return (
                     <span key={pid} className="inline-flex items-center gap-1.5 bg-[--color-gold-tint] text-[--color-gold-tint-text] text-xs font-medium px-2.5 py-1 rounded-full">
-                      {p?.name}
+                      {p?.name ?? pid}
                       <button type="button" onClick={() => toggleProduct(pid)} className="hover:opacity-70"><X className="h-3 w-3" /></button>
                     </span>
                   );
@@ -86,7 +103,7 @@ export default function ComboNewPage() {
             )}
 
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto border border-[--color-border] rounded-lg p-3">
-              {MOCK_PRODUCTS.map((p, i) => (
+              {productList.map((p, i) => (
                 <button
                   key={p.id}
                   type="button"
