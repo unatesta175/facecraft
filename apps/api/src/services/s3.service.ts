@@ -175,8 +175,8 @@ export class S3Service {
     return this.generateKey('variants', photographerId, eventId, photoId, `${variantId}.webp`);
   }
 
-  getSelfieKey(kioskSessionId: string, captureId: string): string {
-    return this.generateKey('temporary', 'selfies', kioskSessionId, `${captureId}.jpg`);
+  getSelfieKey(kioskId: string, captureId: string): string {
+    return this.generateKey('temporary', 'selfies', kioskId, `${captureId}.jpg`);
   }
 
   getReceiptKey(orderId: string): string {

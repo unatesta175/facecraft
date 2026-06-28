@@ -1,17 +1,20 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ApiResponseBuilder, applyDiscountSchema } from '@facecraft/contracts';
+import { ApiResponseBuilder, applyDiscountSchema, facialSearchSchema } from '@facecraft/contracts';
 import { prisma } from '../services/database.service';
+import { s3Service } from '../services/s3.service';
+import { rekognitionService } from '../services/rekognition.service';
 import { validate } from '../middleware/validate';
 import { BusinessRuleError, NotFoundError } from '../utils/errors';
 import { env } from '../config/env';
 import { resolveImageUrl } from '../utils/image-url';
+import { v4 as uuidv4 } from 'uuid';
 
 export const kioskRouter = Router();
 
 const kioskCheckoutAssignmentSchema = z.object({
   imageId: z.string().min(1),
-  imageUrl: z.string().url(),
+  imageUrl: z.string().min(1),
   filename: z.string().min(1),
 });
 
@@ -37,6 +40,217 @@ const kioskCreateOrderSchema = z.object({
   staffCode: z.string().optional(),
   discountCode: z.string().optional(),
   items: z.array(kioskCheckoutItemSchema).min(1, 'Cart must contain at least one package'),
+});
+
+const selfieUploadUrlSchema = z.object({
+  kioskId: z.string().uuid(),
+  captureId: z.string().uuid().optional(),
+});
+
+const browsePhotosQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+});
+
+kioskRouter.post(
+  '/selfie-upload-url',
+  validate(z.object({ body: selfieUploadUrlSchema })),
+  async (req, res) => {
+    const requestId = (req as any).id;
+    const { kioskId } = req.body;
+    const captureId = req.body.captureId ?? uuidv4();
+
+    const kiosk = await prisma.kiosk.findUnique({ where: { id: kioskId } });
+    if (!kiosk || kiosk.status !== 'ACTIVE') {
+      throw new NotFoundError('Kiosk', kioskId);
+    }
+
+    const s3Key = s3Service.getSelfieKey(kioskId, captureId);
+    const uploadUrl = await s3Service.getPresignedUploadUrl(s3Key, 'image/jpeg', 600);
+
+    res.status(201).json(
+      ApiResponseBuilder.success(
+        {
+          captureId,
+          s3Key,
+          uploadUrl,
+          expiresIn: 600,
+        },
+        requestId
+      )
+    );
+  }
+);
+
+kioskRouter.post(
+  '/search-faces',
+  validate(z.object({ body: facialSearchSchema })),
+  async (req, res) => {
+    const requestId = (req as any).id;
+    const { selfieS3Key, maxResults, minConfidence } = req.body;
+    const threshold = minConfidence ?? env.FACE_MATCH_THRESHOLD;
+
+    const selfieExists = await s3Service.objectExists(selfieS3Key);
+    if (!selfieExists) {
+      throw new NotFoundError('Selfie image');
+    }
+
+    const faceMatches = await rekognitionService.searchFacesByImage(
+      env.S3_BUCKET_NAME,
+      selfieS3Key,
+      maxResults,
+      threshold
+    );
+
+    if (faceMatches.length === 0) {
+      res.json(
+        ApiResponseBuilder.success(
+          {
+            matches: [],
+            matchCount: 0,
+          },
+          requestId
+        )
+      );
+      return;
+    }
+
+    const faceIds = faceMatches.map((match) => match.faceId);
+    const similarityByFaceId = new Map(faceMatches.map((match) => [match.faceId, match.similarity]));
+
+    const indexedFaces = await prisma.photographerPhotoFace.findMany({
+      where: { rekognitionFaceId: { in: faceIds } },
+      include: {
+        photographerPhoto: {
+          select: {
+            id: true,
+            s3Key: true,
+            filename: true,
+            createdAt: true,
+            expiresAt: true,
+          },
+        },
+      },
+    });
+
+    const now = new Date();
+    const bestMatchByPhotoId = new Map<
+      string,
+      {
+        photo: (typeof indexedFaces)[number]['photographerPhoto'];
+        similarity: number;
+      }
+    >();
+
+    for (const face of indexedFaces) {
+      const photo = face.photographerPhoto;
+      if (photo.expiresAt <= now) {
+        continue;
+      }
+
+      const similarity = similarityByFaceId.get(face.rekognitionFaceId) ?? 0;
+      const existing = bestMatchByPhotoId.get(photo.id);
+
+      if (!existing || similarity > existing.similarity) {
+        bestMatchByPhotoId.set(photo.id, { photo, similarity });
+      }
+    }
+
+    const sortedMatches = Array.from(bestMatchByPhotoId.values()).sort(
+      (a, b) => b.similarity - a.similarity
+    );
+
+    const matches = await Promise.all(
+      sortedMatches.map(async ({ photo, similarity }) => ({
+        id: photo.id,
+        s3Key: photo.s3Key,
+        imageUrl: await resolveImageUrl(photo.s3Key),
+        filename: photo.filename,
+        capturedAt: photo.createdAt.toISOString(),
+        similarity: Math.round(similarity * 100) / 100,
+      }))
+    );
+
+    res.json(
+      ApiResponseBuilder.success(
+        {
+          matches,
+          matchCount: matches.length,
+        },
+        requestId
+      )
+    );
+  }
+);
+
+kioskRouter.get('/photos', async (req, res) => {
+  const requestId = (req as any).id;
+  const query = browsePhotosQuerySchema.parse(req.query);
+  const skip = (query.page - 1) * query.limit;
+  const now = new Date();
+
+  const createdAtFilter: { gte?: Date; lt?: Date } = {};
+
+  if (query.date) {
+    const [year, month, day] = query.date.split('-').map(Number);
+    const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+    createdAtFilter.gte = start;
+
+    if (query.time) {
+      const [hour, minute] = query.time.split(':').map(Number);
+      const exact = new Date(year, month - 1, day, hour, minute, 0, 0);
+      createdAtFilter.gte = exact;
+      createdAtFilter.lt = new Date(exact.getTime() + 60_000);
+    } else {
+      createdAtFilter.lt = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+    }
+  }
+
+  const where = {
+    expiresAt: { gt: now },
+    ...(Object.keys(createdAtFilter).length > 0 ? { createdAt: createdAtFilter } : {}),
+  };
+
+  const [total, photos] = await Promise.all([
+    prisma.photographerPhoto.count({ where }),
+    prisma.photographerPhoto.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: query.limit,
+    }),
+  ]);
+
+  const items = await Promise.all(
+    photos.map(async (photo) => ({
+      id: photo.id,
+      s3Key: photo.s3Key,
+      imageUrl: await resolveImageUrl(photo.s3Key),
+      filename: photo.filename,
+      capturedAt: photo.createdAt.toISOString(),
+    }))
+  );
+
+  res.json(
+    ApiResponseBuilder.success(
+      {
+        items,
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: Math.max(1, Math.ceil(total / query.limit)),
+      },
+      requestId
+    )
+  );
 });
 
 kioskRouter.get('/frames', async (req, res) => {

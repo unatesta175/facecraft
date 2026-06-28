@@ -48,6 +48,15 @@ export type KioskShopPackage = {
   products: KioskShopProduct[];
 };
 
+export type KioskBrowsePhoto = {
+  id: string;
+  s3Key: string;
+  imageUrl: string | null;
+  filename: string;
+  capturedAt: string;
+  similarity?: number;
+};
+
 export type KioskCheckoutPayload = {
   kioskId: string;
   discountCode?: string;
@@ -132,6 +141,54 @@ export const kioskApi = {
   getActiveFrames: () => apiRequest<KioskFrame[]>('GET', '/api/v1/kiosks/frames'),
 
   getShopPackages: () => apiRequest<KioskShopPackage[]>('GET', '/api/v1/kiosks/combos'),
+
+  getSelfieUploadUrl: (kioskId: string, captureId?: string) =>
+    apiRequest<{
+      captureId: string;
+      s3Key: string;
+      uploadUrl: string;
+      expiresIn: number;
+    }>('POST', '/api/v1/kiosks/selfie-upload-url', { kioskId, captureId }),
+
+  searchFaces: (selfieS3Key: string, maxResults = 20, minConfidence = 80) =>
+    apiRequest<{ matches: KioskBrowsePhoto[]; matchCount: number }>(
+      'POST',
+      '/api/v1/kiosks/search-faces',
+      { selfieS3Key, maxResults, minConfidence }
+    ),
+
+  browsePhotos: (params?: { page?: number; limit?: number; date?: string; time?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.date) query.set('date', params.date);
+    if (params?.time) query.set('time', params.time);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return apiRequest<{
+      items: KioskBrowsePhoto[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>('GET', `/api/v1/kiosks/photos${suffix}`);
+  },
+
+  uploadSelfieToS3: async (uploadUrl: string, imageDataUrl: string) => {
+    const response = await fetch(imageDataUrl);
+    const blob = await response.blob();
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'image/jpeg',
+      },
+      body: blob,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload selfie');
+    }
+  },
 
   validateDiscount: (code: string) =>
     apiRequest<{ code: string; amount: number; description: string | null }>(

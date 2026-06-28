@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Check, ArrowLeft, ImageOff } from 'lucide-react';
 import { format } from 'date-fns';
@@ -10,42 +10,51 @@ import { PreviewModal } from '@/components/kiosk/preview-modal';
 import { KioskDateFilter, KioskTimeFilter } from '@/components/kiosk/kiosk-filter-pickers';
 import { PhotoGridItem } from '@/components/kiosk/photo-grid-item';
 import { KIOSK_FRAME_ASPECT_CLASS } from '@/components/kiosk/kiosk-framed-image';
-import { kioskApi, type KioskFrame } from '@/lib/kiosk-api';
-import { useRouter } from 'next/navigation';
+import { kioskApi, type KioskBrowsePhoto, type KioskFrame } from '@/lib/kiosk-api';
+import {
+  loadFaceMatchPhotos,
+  saveSelectedAlbum,
+} from '@/lib/kiosk-photo-session';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 type KioskPhoto = {
   id: string;
   url: string;
+  s3Key: string;
+  filename: string;
   capturedAt: Date;
 };
 
-const generateMockPhotos = (count: number, offset = 0): KioskPhoto[] => {
-  return Array.from({ length: count }, (_, i) => {
-    const index = offset + i;
-    const day = (index % 23) + 1;
-    const hour = 9 + (index % 12);
-    const minute = (index * 7) % 60;
-    const capturedAt = new Date(2026, 5, day, hour, minute);
+function mapBrowsePhoto(photo: KioskBrowsePhoto): KioskPhoto | null {
+  if (!photo.imageUrl) return null;
+  return {
+    id: photo.id,
+    url: photo.imageUrl,
+    s3Key: photo.s3Key,
+    filename: photo.filename,
+    capturedAt: new Date(photo.capturedAt),
+  };
+}
 
-    return {
-      id: `photo-${index + 1}`,
-      url: `https://picsum.photos/seed/${index + 100}/600/800`,
-      capturedAt,
-    };
-  });
-};
-
-export default function SelectPhotosPage() {
+function SelectPhotosContent() {
   const router = useRouter();
-  const [photos, setPhotos] = useState<KioskPhoto[]>(() => generateMockPhotos(20));
+  const searchParams = useSearchParams();
+  const isManualMode = searchParams.get('mode') === 'manual';
+
+  const [photos, setPhotos] = useState<KioskPhoto[]>([]);
   const [frames, setFrames] = useState<KioskFrame[]>([]);
   const [framesLoading, setFramesLoading] = useState(true);
   const [selectedFrame, setSelectedFrame] = useState<KioskFrame | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [dateFilter, setDateFilter] = useState('');
   const [timeFilter, setTimeFilter] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [photoSource, setPhotoSource] = useState<'face-search' | 'manual'>('face-search');
 
   const selectedFrameUrl = selectedFrame?.imageUrl ?? null;
 
@@ -83,11 +92,66 @@ export default function SelectPhotosPage() {
     };
   }, []);
 
-  const loadMore = useCallback(() => {
-    setPhotos((prev) => [...prev, ...generateMockPhotos(10, prev.length)]);
-  }, []);
+  const loadPhotos = useCallback(
+    async (nextPage: number, replace = false) => {
+      if (isManualMode) {
+        if (nextPage > 1 && isLoadingMore) return;
+        if (nextPage > 1) setIsLoadingMore(true);
+        else setIsLoading(true);
+
+        try {
+          const response = await kioskApi.browsePhotos({
+            page: nextPage,
+            limit: 20,
+            date: dateFilter || undefined,
+            time: timeFilter || undefined,
+          });
+
+          const items = (response.data?.items ?? [])
+            .map(mapBrowsePhoto)
+            .filter((photo): photo is KioskPhoto => photo !== null);
+
+          setPhotos((prev) => (replace ? items : [...prev, ...items]));
+          setPage(nextPage);
+          setHasMore(nextPage < (response.data?.totalPages ?? 1));
+          setPhotoSource('manual');
+          setLoadError(null);
+        } catch {
+          setLoadError('Unable to load photos. Please try again.');
+        } finally {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      const matches = loadFaceMatchPhotos();
+      const mapped = matches
+        .map(mapBrowsePhoto)
+        .filter((photo): photo is KioskPhoto => photo !== null);
+
+      setPhotos(mapped);
+      setPhotoSource('face-search');
+      setHasMore(false);
+      setLoadError(mapped.length === 0 ? 'No face matches found. Try manual search.' : null);
+      setIsLoading(false);
+    },
+    [dateFilter, isLoadingMore, isManualMode, timeFilter]
+  );
 
   useEffect(() => {
+    loadPhotos(1, true);
+  }, [isManualMode, dateFilter, timeFilter]);
+
+  const loadMore = useCallback(() => {
+    if (!isManualMode || !hasMore || isLoadingMore) return;
+    loadPhotos(page + 1);
+  }, [hasMore, isLoadingMore, isManualMode, loadPhotos, page]);
+
+  useEffect(() => {
+    if (!isManualMode) return;
+
     const handleScroll = () => {
       if (
         window.innerHeight + document.documentElement.scrollTop
@@ -99,7 +163,7 @@ export default function SelectPhotosPage() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [loadMore]);
+  }, [isManualMode, loadMore]);
 
   const togglePhotoSelection = useCallback((photoId: string) => {
     setSelectedPhotos((prev) => {
@@ -122,14 +186,31 @@ export default function SelectPhotosPage() {
   };
 
   const handleApplyPreview = () => {
+    const selected = photos.filter((photo) => selectedPhotos.has(photo.id));
+
+    saveSelectedAlbum({
+      photos: selected.map((photo) => ({
+        id: photo.id,
+        s3Key: photo.s3Key,
+        imageUrl: photo.url,
+        filename: photo.filename,
+        capturedAt: photo.capturedAt.toISOString(),
+      })),
+      frameId: selectedFrame?.id ?? null,
+      frameUrl: selectedFrameUrl,
+      source: photoSource,
+    });
+
     setShowPreviewModal(false);
     setIsLoading(true);
-    setTimeout(() => {
-      router.push('/kiosk/shop');
-    }, 800);
+    router.push('/kiosk/shop');
   };
 
   const filteredPhotos = useMemo(() => {
+    if (isManualMode) {
+      return photos;
+    }
+
     return photos.filter((photo) => {
       if (dateFilter) {
         const photoDate = format(photo.capturedAt, 'yyyy-MM-dd');
@@ -141,7 +222,7 @@ export default function SelectPhotosPage() {
       }
       return true;
     });
-  }, [photos, dateFilter, timeFilter]);
+  }, [photos, dateFilter, timeFilter, isManualMode]);
 
   const previewPhotos = useMemo(
     () =>
@@ -155,7 +236,7 @@ export default function SelectPhotosPage() {
   );
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner message="Loading your photos..." />;
   }
 
   return (
@@ -174,9 +255,16 @@ export default function SelectPhotosPage() {
       <div className="sticky top-0 z-40 border-b border-[#f0f0f0] bg-[#fafafa] shadow-sm">
         <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-            <h2 className="mb-6 font-jakarta text-2xl font-bold text-[#1f1b16] md:text-3xl">
+            <h2 className="mb-2 font-jakarta text-2xl font-bold text-[#1f1b16] md:text-3xl">
               Select Your Photos
             </h2>
+            <p className="mb-6 font-nunito text-sm text-[#6b6b6b]">
+              {isManualMode
+                ? 'Browse photos by date and time.'
+                : photoSource === 'face-search'
+                  ? 'Photos matched to your selfie.'
+                  : 'Choose photos to continue.'}
+            </p>
 
             <div className="mb-6 flex flex-col gap-4 md:flex-row">
               <KioskDateFilter value={dateFilter} onChange={setDateFilter} />
@@ -240,6 +328,10 @@ export default function SelectPhotosPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+        {loadError ? (
+          <p className="py-12 text-center font-nunito text-[#ff6b6b]">{loadError}</p>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-4 md:gap-6">
           {filteredPhotos.map((photo, index) => (
             <PhotoGridItem
@@ -255,15 +347,17 @@ export default function SelectPhotosPage() {
           ))}
         </div>
 
-        {filteredPhotos.length === 0 ? (
+        {filteredPhotos.length === 0 && !loadError ? (
           <p className="py-12 text-center font-nunito text-[#9a9286]">
             No photos match the selected date or time.
           </p>
-        ) : (
+        ) : isManualMode && hasMore ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-12 text-center">
-            <p className="font-nunito text-[#b0b0b0]">Scroll for more photos...</p>
+            <p className="font-nunito text-[#b0b0b0]">
+              {isLoadingMore ? 'Loading more photos...' : 'Scroll for more photos...'}
+            </p>
           </motion.div>
-        )}
+        ) : null}
       </div>
 
       <AnimatePresence>
@@ -299,5 +393,13 @@ export default function SelectPhotosPage() {
         onApply={handleApplyPreview}
       />
     </div>
+  );
+}
+
+export default function SelectPhotosPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner message="Loading your photos..." />}>
+      <SelectPhotosContent />
+    </Suspense>
   );
 }

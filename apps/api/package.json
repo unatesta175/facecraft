@@ -16,6 +16,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:import-migration": "tsx prisma/import-migration.ts",
     "db:import-combo-items": "tsx prisma/import-combo-items.ts",
+    "db:reindex-faces": "tsx prisma/reindex-faces.ts",
     "s3:upload-catalog": "tsx prisma/upload-catalog-to-s3.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset"

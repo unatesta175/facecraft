@@ -68,6 +68,13 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum FaceIndexStatus {
+  PENDING
+  INDEXED
+  NO_FACE
+  FAILED
+}
+
 // ─── Core Models ──────────────────────────────────────────────────────────────
 
 model User {
@@ -328,20 +335,36 @@ model OrderPhoto {
 }
 
 model PhotographerPhoto {
-  id             String   @id @default(uuid())
-  photographerId String
-  s3Key          String
-  filename       String
-  contentType    String
-  fileSize       Int      @default(0)
-  width          Int?
-  height         Int?
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
+  id              String          @id @default(uuid())
+  photographerId  String
+  s3Key           String
+  filename        String
+  contentType     String
+  fileSize        Int             @default(0)
+  width           Int?
+  height          Int?
+  faceIndexStatus FaceIndexStatus @default(PENDING)
+  expiresAt       DateTime
+  createdAt       DateTime        @default(now())
 
-  photographer User @relation("PhotographerUploads", fields: [photographerId], references: [id])
+  photographer User                    @relation("PhotographerUploads", fields: [photographerId], references: [id])
+  faces        PhotographerPhotoFace[]
 
   @@index([photographerId])
   @@index([expiresAt])
+  @@index([faceIndexStatus])
   @@map("photographer_photos")
+}
+
+model PhotographerPhotoFace {
+  id                  String   @id @default(uuid())
+  photographerPhotoId String
+  rekognitionFaceId   String   @unique
+  confidence          Decimal? @db.Decimal(5, 2)
+  createdAt           DateTime @default(now())
+
+  photographerPhoto PhotographerPhoto @relation(fields: [photographerPhotoId], references: [id], onDelete: Cascade)
+
+  @@index([photographerPhotoId])
+  @@map("photographer_photo_faces")
 }

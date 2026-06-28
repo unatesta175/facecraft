@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 
-export function LoadingSpinner() {
+export function LoadingSpinner({ message }: { message?: string }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f7f6f3]">
       <div className="flex flex-col items-center space-y-6">
@@ -80,7 +80,7 @@ export function LoadingSpinner() {
             Face Craft Studio
           </h3>
           <p className="font-nunito text-sm text-[#9a9286] mt-1">
-            Where Technology Meets Tradition
+            {message ?? 'Where Technology Meets Tradition'}
           </p>
         </motion.div>
       </div>

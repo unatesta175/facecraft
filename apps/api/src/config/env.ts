@@ -19,6 +19,7 @@ const envSchema = z.object({
   PHOTO_RETENTION_DAYS: z.string().transform(Number).pipe(z.number().int().positive()).default('7'),
   SIGNED_URL_TTL_SECONDS: z.string().transform(Number).pipe(z.number().int().positive()).default('300'),
   KIOSK_SESSION_TTL_MINUTES: z.string().transform(Number).pipe(z.number().int().positive()).default('30'),
+  FACE_MATCH_THRESHOLD: z.string().transform(Number).pipe(z.number().min(0).max(100)).default('80'),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
 });

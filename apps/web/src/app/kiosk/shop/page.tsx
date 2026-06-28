@@ -10,14 +10,14 @@ import { AIPhotoEditorModal } from '@/components/kiosk/ai-photo-editor-modal';
 import { PhotoFrameModal } from '@/components/kiosk/photo-frame-modal';
 import { kioskApi, type KioskShopPackage, type KioskShopProduct } from '@/lib/kiosk-api';
 import { useKioskCart } from '@/hooks/use-kiosk-cart';
+import { loadSelectedAlbum, type KioskBrowsePhoto } from '@/lib/kiosk-photo-session';
 
-const SELECTED_IMAGES = [
-  { id: 'img-1', url: 'https://picsum.photos/seed/201/400/600', filename: 'photo_001.png' },
-  { id: 'img-2', url: 'https://picsum.photos/seed/202/400/600', filename: 'photo_002.png' },
-  { id: 'img-3', url: 'https://picsum.photos/seed/203/400/600', filename: 'photo_003.png' },
-  { id: 'img-4', url: 'https://picsum.photos/seed/204/400/600', filename: 'photo_004.png' },
-  { id: 'img-5', url: 'https://picsum.photos/seed/205/400/600', filename: 'photo_005.png' },
-];
+type AlbumImage = {
+  id: string;
+  url: string;
+  s3Key: string;
+  filename: string;
+};
 
 export default function ShopPage() {
   const router = useRouter();
@@ -37,8 +37,9 @@ export default function ShopPage() {
   const [frameModalData, setFrameModalData] = useState<{
     pkg: KioskShopPackage;
     product: KioskShopProduct;
-    images: { id: string; url: string; filename: string }[];
+    images: AlbumImage[];
   } | null>(null);
+  const [albumImages, setAlbumImages] = useState<AlbumImage[]>([]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [pendingPackageId, setPendingPackageId] = useState<string | null>(null);
 
@@ -67,6 +68,25 @@ export default function ShopPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const album = loadSelectedAlbum();
+    if (!album || album.photos.length === 0) {
+      router.replace('/kiosk/select-photos');
+      return;
+    }
+
+    const images: AlbumImage[] = album.photos
+      .filter((photo): photo is KioskBrowsePhoto & { imageUrl: string } => Boolean(photo.imageUrl))
+      .map((photo) => ({
+        id: photo.id,
+        url: photo.imageUrl,
+        s3Key: photo.s3Key,
+        filename: photo.filename,
+      }));
+
+    setAlbumImages(images);
+  }, [router]);
 
   const handleAddProduct = (pkg: KioskShopPackage, product: KioskShopProduct) => {
     // Check if there's an active package that's not in cart yet
@@ -116,17 +136,13 @@ export default function ShopPage() {
     }
 
     // Prepare images with quantities
-    const imagesToAssign: { id: string; url: string; filename: string }[] = [];
-    selectedImageArray.forEach(imgId => {
-      const image = SELECTED_IMAGES.find(img => img.id === imgId);
+    const imagesToAssign: AlbumImage[] = [];
+    selectedImageArray.forEach((imgId) => {
+      const image = albumImages.find((img) => img.id === imgId);
       if (image) {
         const qty = imageQuantities[imgId] || 1;
         for (let i = 0; i < qty; i++) {
-          imagesToAssign.push({
-            id: image.id,
-            url: image.url,
-            filename: image.filename,
-          });
+          imagesToAssign.push(image);
         }
       }
     });
@@ -148,9 +164,9 @@ export default function ShopPage() {
       ...prev,
       [pkg.id]: {
         ...prev[pkg.id],
-        [product.id]: [...(prev[pkg.id]?.[product.id] || []), ...images.map(img => ({
+        [product.id]: [...(prev[pkg.id]?.[product.id] || []), ...images.map((img) => ({
           imageId: img.id,
-          imageUrl: img.url,
+          imageUrl: img.s3Key,
           filename: img.filename,
         }))],
       },
@@ -505,7 +521,7 @@ export default function ShopPage() {
                 </p>
 
                 <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                  {SELECTED_IMAGES.map((image) => (
+                  {albumImages.map((image) => (
                     <div
                       key={image.id}
                       className={`relative group rounded-xl overflow-hidden border-2 transition-all ${

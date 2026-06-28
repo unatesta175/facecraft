@@ -9,6 +9,7 @@ import { NotFoundError } from '../utils/errors';
 import { resolveImageUrl } from '../utils/image-url';
 import { env } from '../config/env';
 import { v4 as uuidv4 } from 'uuid';
+import { indexPhotographerPhoto, deletePhotographerPhotoFaces } from '../services/face-index.service';
 
 const uploadPhotoSchema = z.object({
   filename: z.string().min(1),
@@ -271,6 +272,8 @@ photographerRouter.post('/photos/:id/confirm-upload', async (req, res) => {
     },
   });
 
+  await indexPhotographerPhoto(photo.id);
+
   res.json(
     ApiResponseBuilder.success(
       {
@@ -296,6 +299,7 @@ photographerRouter.delete('/photos/:id', async (req, res) => {
     throw new NotFoundError('Photo', req.params.id);
   }
 
+  await deletePhotographerPhotoFaces(photo.id);
   await s3Service.deleteObject(photo.s3Key).catch(() => undefined);
   await prisma.photographerPhoto.delete({ where: { id: photo.id } });
 
