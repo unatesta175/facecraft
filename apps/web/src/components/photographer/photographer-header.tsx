@@ -3,7 +3,7 @@
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { AdminBrandLogo } from '@/components/admin-brand-logo';
 import { cn } from '@/lib/utils';
 
@@ -24,16 +24,16 @@ export function PhotographerHeader({ backHref, actions, className }: Photographe
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
         <div className="flex min-w-0 items-center gap-4">
           {backHref ? (
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              className="flex-shrink-0 rounded-lg hover:bg-[--color-surface-muted]"
+            <Link
+              href={backHref}
+              aria-label="Go back"
+              className={cn(
+                buttonVariants({ variant: 'ghost', size: 'icon' }),
+                'flex-shrink-0 rounded-lg hover:bg-[--color-surface-muted]'
+              )}
             >
-              <Link href={backHref} aria-label="Go back">
-                <ArrowLeft className="h-5 w-5 text-[--color-text-primary]" />
-              </Link>
-            </Button>
+              <ArrowLeft className="h-5 w-5 text-[--color-text-primary]" />
+            </Link>
           ) : null}
           <Link href="/photographer" className="flex-shrink-0">
             <AdminBrandLogo imageClassName="h-10 max-w-[200px]" />
