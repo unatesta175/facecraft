@@ -3,13 +3,16 @@
 import { useState, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Search, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Camera, RotateCcw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { KioskHeader } from '@/components/kiosk/kiosk-header';
+import { KioskPageBody, KioskShell } from '@/components/kiosk/kiosk-shell';
 import { LoadingSpinner } from '@/components/kiosk/loading-spinner';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { kioskApi } from '@/lib/kiosk-api';
 import { saveFaceMatchPhotos, clearFaceMatchPhotos } from '@/lib/kiosk-photo-session';
+import { kioskBtnPrimary, kioskBtnOutline, kioskCard } from '@/lib/kiosk-ui';
 
 function createCaptureId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -33,9 +36,7 @@ export default function KioskCapturePage() {
     }
   }, []);
 
-  const handleRetry = () => {
-    setCapturedImage(null);
-  };
+  const handleRetry = () => setCapturedImage(null);
 
   const handleContinue = async () => {
     if (!capturedImage) return;
@@ -103,52 +104,29 @@ export default function KioskCapturePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f9f9f7] p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="mb-4"
-        >
-          <Button
-            onClick={() => router.push('/kiosk/home')}
-            variant="ghost"
-            className="text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-[#f5f5f5] rounded-xl transition-colors"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Button>
-        </motion.div>
+    <KioskShell fixed className="bg-white">
+      <KioskHeader
+        title="Capture Selfie"
+        subtitle="Position yourself in the frame"
+        onBack={() => router.push('/kiosk/home')}
+      />
 
+      <KioskPageBody className="px-4 py-3">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
-          <h2 className="font-jakarta text-3xl md:text-4xl font-bold text-[#1f1b16] mb-2">
-            Capture Your Selfie
-          </h2>
-          <p className="font-nunito text-base md:text-lg text-[#6b6b6b]">
-            Position yourself in the frame and smile!
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-3xl shadow-lg overflow-hidden border border-[#f0f0f0]"
+          className={`${kioskCard} flex min-h-0 flex-1 flex-col overflow-hidden shadow-md`}
         >
-          <div className="relative aspect-[4/3] bg-[#000000]">
+          <div className="relative min-h-0 flex-1 bg-black">
             {!capturedImage ? (
               <Webcam
                 ref={webcamRef}
                 audio={false}
                 screenshotFormat="image/jpeg"
-                className="w-full h-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
                 videoConstraints={{
-                  width: 1920,
-                  height: 1080,
+                  width: 1080,
+                  height: 1920,
                   facingMode: 'user',
                 }}
               />
@@ -158,7 +136,7 @@ export default function KioskCapturePage() {
                 animate={{ opacity: 1 }}
                 src={capturedImage}
                 alt="Captured selfie"
-                className="w-full h-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
               />
             )}
 
@@ -168,79 +146,75 @@ export default function KioskCapturePage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center"
                 >
-                  <div className="w-64 h-64 md:w-80 md:h-80 border-4 border-[#c9982f] rounded-full opacity-20 animate-pulse" />
+                  <div className="h-48 w-48 rounded-full border-4 border-[--color-gold]/40 opacity-60" />
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          <div className="p-6 md:p-8 bg-white">
+          <div className="shrink-0 space-y-2 border-t border-[--color-border] p-4">
             <AnimatePresence mode="wait">
               {!capturedImage ? (
                 <motion.div
                   key="capture"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-2"
                 >
                   <Button
                     onClick={capture}
                     size="lg"
-                    className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta text-lg md:text-xl py-7 md:py-8 rounded-2xl shadow-md hover:shadow-lg transition-all"
+                    className={`h-14 w-full rounded-2xl text-base ${kioskBtnPrimary}`}
                   >
-                    <Camera className="mr-3 h-6 w-6" />
+                    <Camera className="mr-2 h-5 w-5" />
                     Capture Photo
                   </Button>
-
                   <Button
                     onClick={handleManualSearch}
                     size="lg"
                     variant="outline"
-                    className="border-2 border-[#e0e0e0] text-[#1f1b16] hover:text-[#1f1b16] hover:bg-[#f9f9f9] hover:border-[#c9982f] font-jakarta text-lg md:text-xl py-7 md:py-8 rounded-2xl transition-all"
+                    className={`h-12 w-full rounded-2xl ${kioskBtnOutline}`}
                   >
-                    <Search className="mr-3 h-6 w-6" />
+                    <Search className="mr-2 h-5 w-5" />
                     Manual Search
                   </Button>
                 </motion.div>
               ) : (
                 <motion.div
                   key="review"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-2"
                 >
-                  <p className="text-center font-nunito text-lg text-[#6b6b6b] mb-4">
+                  <p className="text-center font-nunito text-sm text-[--color-text-secondary]">
                     Great shot! Continue or try again?
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button
-                      onClick={handleRetry}
-                      size="lg"
-                      variant="outline"
-                      className="border-2 border-[#e0e0e0] text-[#1f1b16] hover:text-[#1f1b16] hover:bg-[#f9f9f9] hover:border-[#c9982f] font-jakarta text-lg md:text-xl py-7 md:py-8 rounded-2xl transition-all"
-                    >
-                      <RotateCcw className="mr-3 h-6 w-6" />
-                      Retry
-                    </Button>
-
-                    <Button
-                      onClick={handleContinue}
-                      size="lg"
-                      className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta text-lg md:text-xl py-7 md:py-8 rounded-2xl shadow-md hover:shadow-lg transition-all"
-                    >
-                      Continue
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={handleContinue}
+                    size="lg"
+                    className={`h-14 w-full rounded-2xl text-base ${kioskBtnPrimary}`}
+                  >
+                    Continue
+                  </Button>
+                  <Button
+                    onClick={handleRetry}
+                    size="lg"
+                    variant="outline"
+                    className={`h-12 w-full rounded-2xl ${kioskBtnOutline}`}
+                  >
+                    <RotateCcw className="mr-2 h-5 w-5" />
+                    Retry
+                  </Button>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </motion.div>
-      </div>
-    </div>
+      </KioskPageBody>
+    </KioskShell>
   );
 }

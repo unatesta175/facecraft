@@ -22,6 +22,10 @@ const envSchema = z.object({
   FACE_MATCH_THRESHOLD: z.string().transform(Number).pipe(z.number().min(0).max(100)).default('80'),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  BRAND_LOGO_S3_KEY: z.string().optional(),
+  BRAND_ADMIN_LOGO_S3_KEY: z.string().optional(),
+  BRAND_SPINNER_S3_KEY: z.string().optional(),
+  KIOSK_HOME_VIDEO_S3_KEY: z.string().optional(),
 });
 
 function validateEnv() {

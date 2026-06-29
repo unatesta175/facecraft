@@ -25,6 +25,8 @@ type KioskAlbumCardProps = {
   onToggleSelect: (id: string) => void;
   onOpenAiEditor: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
+  /** Narrow column layout for kiosk shop side panel */
+  compact?: boolean;
 };
 
 export const KioskAlbumCard = memo(function KioskAlbumCard({
@@ -35,14 +37,20 @@ export const KioskAlbumCard = memo(function KioskAlbumCard({
   onToggleSelect,
   onOpenAiEditor,
   onQuantityChange,
+  compact = false,
 }: KioskAlbumCardProps) {
+  const actionBtnClass = compact ? 'h-8 w-8' : 'h-10 w-10';
+  const actionIconClass = compact ? 'h-4 w-4' : 'h-5 w-5';
+
   return (
     <div
       className={`relative rounded-xl border-2 transition-all ${
-        isSelected ? 'border-[#c9982f] shadow-md' : 'border-[#f0f0f0]'
+        isSelected ? 'border-[--color-gold] shadow-md' : 'border-[--color-border]'
       }`}
     >
-      <div className={`relative ${KIOSK_FRAME_ASPECT_CLASS} w-full overflow-hidden rounded-[10px]`}>
+      <div
+        className={`relative ${KIOSK_FRAME_ASPECT_CLASS} w-full overflow-hidden rounded-[10px] bg-[--color-surface-muted]`}
+      >
         <KioskFramedImage
           photoUrl={image.photoUrl}
           frameUrl={frameUrl}
@@ -53,27 +61,27 @@ export const KioskAlbumCard = memo(function KioskAlbumCard({
       </div>
 
       <div className="pointer-events-none absolute inset-0 z-20">
-        <div className="pointer-events-auto absolute right-3 top-3 flex gap-2">
+        <div className={`pointer-events-auto absolute flex gap-1.5 ${compact ? 'right-2 top-2' : 'right-3 top-3'}`}>
           <Button
             type="button"
             onClick={() => onOpenAiEditor(image.id)}
             size="icon"
-            className="h-10 w-10 rounded-full bg-gradient-to-r from-[#c9982f] to-[#b8872a] text-white shadow-lg hover:from-[#b8872a] hover:to-[#a77824]"
+            className={`${actionBtnClass} rounded-full bg-[--color-gold] text-white shadow-md hover:bg-[--color-gold-hover]`}
           >
-            <Wand2 className="h-5 w-5" />
+            <Wand2 className={actionIconClass} />
           </Button>
 
           <Button
             type="button"
             onClick={() => onToggleSelect(image.id)}
             size="icon"
-            className={`h-10 w-10 rounded-full shadow-lg ${
+            className={`${actionBtnClass} rounded-full shadow-md ${
               isSelected
-                ? 'bg-gradient-to-r from-[#c9982f] to-[#b8872a] text-white'
-                : 'bg-white/95 text-[#1f1b16] hover:bg-white'
+                ? 'bg-[--color-gold] text-white'
+                : 'bg-white/95 text-[--color-text-primary] hover:bg-white'
             }`}
           >
-            {isSelected ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+            {isSelected ? <Check className={actionIconClass} /> : <Plus className={actionIconClass} />}
           </Button>
         </div>
 
@@ -83,20 +91,24 @@ export const KioskAlbumCard = memo(function KioskAlbumCard({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="pointer-events-auto absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-xl border border-[#f0f0f0] bg-white/95 p-3 shadow-lg backdrop-blur-sm"
+              className={`pointer-events-auto absolute flex items-center justify-between rounded-lg border border-[--color-border] bg-white/95 shadow-lg backdrop-blur-sm ${
+                compact ? 'bottom-2 left-2 right-2 p-2' : 'bottom-3 left-3 right-3 p-3'
+              }`}
             >
-              <span className="font-nunito text-sm font-medium text-[#1f1b16]">Quantity:</span>
-              <div className="flex items-center gap-2">
+              <span className={`font-nunito font-medium text-[--color-text-primary] ${compact ? 'text-xs' : 'text-sm'}`}>
+                Qty
+              </span>
+              <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
                   onClick={() => onQuantityChange(image.id, Math.max(quantity - 1, 1))}
                   size="icon"
                   variant="outline"
-                  className="h-8 w-8 border-[#e0e0e0] hover:border-[#c9982f] hover:bg-[#f9f9f7]"
+                  className={`border-[--color-border] hover:border-[--color-gold] ${compact ? 'h-7 w-7' : 'h-8 w-8'}`}
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className="h-3.5 w-3.5" />
                 </Button>
-                <span className="min-w-[30px] text-center font-jakarta font-bold text-[#1f1b16]">
+                <span className={`min-w-[24px] text-center font-jakarta font-bold ${compact ? 'text-sm' : 'text-base'}`}>
                   {quantity}
                 </span>
                 <Button
@@ -104,9 +116,9 @@ export const KioskAlbumCard = memo(function KioskAlbumCard({
                   onClick={() => onQuantityChange(image.id, Math.min(quantity + 1, 10))}
                   size="icon"
                   variant="outline"
-                  className="h-8 w-8 border-[#e0e0e0] hover:border-[#c9982f] hover:bg-[#f9f9f7]"
+                  className={`border-[--color-border] hover:border-[--color-gold] ${compact ? 'h-7 w-7' : 'h-8 w-8'}`}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </motion.div>

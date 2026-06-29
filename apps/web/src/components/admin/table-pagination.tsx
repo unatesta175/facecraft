@@ -35,7 +35,7 @@ export function TablePagination({ currentPage, totalPages, totalItems, itemsPerP
             variant={page === currentPage ? 'default' : 'outline'}
             size="sm"
             onClick={() => onPageChange(page)}
-            className={page === currentPage ? 'bg-[--color-gold] hover:bg-[--color-gold]/90 text-white min-w-[36px]' : 'min-w-[36px]'}
+            className={page === currentPage ? 'bg-[--color-gold] hover:bg-[--color-gold-hover] text-white min-w-[36px]' : 'min-w-[36px] hover:bg-[--color-surface-muted]'}
           >
             {page}
           </Button>

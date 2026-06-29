@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/admin/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Package, ShoppingBag, Camera, Monitor } from 'lucide-react';
 import { adminApi, type AdminDashboard as AdminDashboardData } from '@/lib/admin-api';
+import { cn } from '@/lib/utils';
 
 export default function AdminDashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
@@ -47,25 +48,29 @@ export default function AdminDashboard() {
       label: 'Total Orders',
       value: data?.stats.totalOrders ?? 0,
       icon: ShoppingBag,
-      color: 'gold' as const,
+      iconBg: 'bg-[--color-blond]',
+      iconColor: 'text-[--color-gold]',
     },
     {
       label: 'Total Sales (RM)',
       value: `RM ${(data?.stats.totalSales ?? 0).toFixed(2)}`,
       icon: Package,
-      color: 'chocolate' as const,
+      iconBg: 'bg-[--color-caramel]/50',
+      iconColor: 'text-[--color-chocolate]',
     },
     {
       label: 'Total Photographers',
       value: data?.stats.totalPhotographers ?? 0,
       icon: Camera,
-      color: 'gold' as const,
+      iconBg: 'bg-[--color-blond]',
+      iconColor: 'text-[--color-gold]',
     },
     {
       label: 'Total Kiosks',
       value: data?.stats.totalKiosks ?? 0,
       icon: Monitor,
-      color: 'chocolate' as const,
+      iconBg: 'bg-[--color-caramel]/50',
+      iconColor: 'text-[--color-chocolate]',
     },
   ];
 
@@ -80,7 +85,7 @@ export default function AdminDashboard() {
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -89,15 +94,12 @@ export default function AdminDashboard() {
           {stats.map((s) => (
             <div key={s.label} className="bg-white border border-[--color-border] rounded-xl p-5 space-y-3">
               <div
-                className={`w-11 h-11 rounded-lg flex items-center justify-center ${
-                  s.color === 'gold' ? 'bg-[--color-gold-tint]' : 'bg-[--color-chocolate-tint]'
-                }`}
+                className={cn(
+                  'w-11 h-11 rounded-lg flex items-center justify-center',
+                  s.iconBg
+                )}
               >
-                <s.icon
-                  className={`h-5 w-5 ${
-                    s.color === 'gold' ? 'text-[--color-gold]' : 'text-[--color-chocolate]'
-                  }`}
-                />
+                <s.icon className={cn('h-5 w-5', s.iconColor)} />
               </div>
               <div>
                 <p className="text-xs text-[--color-text-secondary]">{s.label}</p>
@@ -115,18 +117,18 @@ export default function AdminDashboard() {
           </div>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Kiosk</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
+              <TableRow className="hover:bg-transparent border-[--color-border-subtle]">
+                <TableHead className="text-[--color-text-secondary]">Order ID</TableHead>
+                <TableHead className="text-[--color-text-secondary]">Kiosk</TableHead>
+                <TableHead className="text-[--color-text-secondary]">Date</TableHead>
+                <TableHead className="text-[--color-text-secondary]">Price</TableHead>
+                <TableHead className="text-[--color-text-secondary]">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-8">
+                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-10">
                     Loading orders...
                   </TableCell>
                 </TableRow>
@@ -134,9 +136,11 @@ export default function AdminDashboard() {
                 data.recentOrders.map((o) => (
                   <TableRow key={o.id}>
                     <TableCell className="font-mono text-xs text-[--color-text-primary]">{o.orderCode}</TableCell>
-                    <TableCell className="text-sm">{o.kioskName}</TableCell>
+                    <TableCell className="text-sm text-[--color-text-primary]">{o.kioskName}</TableCell>
                     <TableCell className="text-sm text-[--color-text-secondary]">{o.date}</TableCell>
-                    <TableCell className="text-sm font-medium">RM {o.price.toFixed(2)}</TableCell>
+                    <TableCell className="text-sm font-semibold text-[--color-text-primary]">
+                      RM {o.price.toFixed(2)}
+                    </TableCell>
                     <TableCell>
                       <StatusBadge status={o.paymentStatus} />
                     </TableCell>
@@ -144,7 +148,7 @@ export default function AdminDashboard() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-8">
+                  <TableCell colSpan={5} className="text-center text-sm text-[--color-text-secondary] py-10">
                     No orders yet.
                   </TableCell>
                 </TableRow>

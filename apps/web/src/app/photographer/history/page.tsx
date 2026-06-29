@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Calendar, Image as ImageIcon, Search, Filter, Download, Loader2 } from 'lucide-react';
+import { Calendar, Image as ImageIcon, Search, Filter, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { photographerApi, PhotographerHistoryDay } from '@/lib/photographer-api';
 import { useToast } from '@/hooks/use-toast';
+import { PhotographerHeader } from '@/components/photographer/photographer-header';
+import { PhotographerPageHeading } from '@/components/photographer/photographer-page-heading';
 
 type DateFilter = 'all' | 'today' | 'week' | 'month';
 
@@ -93,47 +95,28 @@ export default function UploadHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f6f3]">
-      <div className="bg-white border-b border-[#e5e1d7] sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={() => router.push('/photographer')}
-                variant="ghost"
-                size="icon"
-                className="rounded-xl hover:bg-[#f7f6f3]"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="font-jakarta text-2xl font-bold text-[#1f1b16]">
-                  Upload History
-                </h1>
-                <p className="font-nunito text-sm text-[#9a9286]">
-                  {totalPhotos} photo{totalPhotos === 1 ? '' : 's'} from your S3 uploads
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-white">
+      <PhotographerHeader backHref="/photographer" />
 
       <div className="max-w-7xl mx-auto p-6">
+        <PhotographerPageHeading
+          title="Upload History"
+          subtitle={`${totalPhotos} photo${totalPhotos === 1 ? '' : 's'} in your upload history`}
+        />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 shadow-sm border border-[#e5e1d7] mb-6"
+          className="bg-white rounded-xl p-6 shadow-sm border border-[--color-border] mb-6"
         >
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#9a9286]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[--color-text-secondary]" />
               <Input
                 type="text"
                 placeholder="Search by date, filename, or photo count..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-12 font-nunito bg-[#f7f6f3] border-[#e5e1d7]"
+                className="pl-10 h-12 font-nunito bg-[--color-surface-muted] border-[--color-border]"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -144,8 +127,8 @@ export default function UploadHistoryPage() {
                   variant={selectedFilter === filter ? 'default' : 'outline'}
                   className={`font-nunito capitalize ${
                     selectedFilter === filter
-                      ? 'bg-gradient-to-r from-[#ff9d7e] to-[#f5826b] text-white'
-                      : 'border-[#e5e1d7] hover:bg-[#f7f6f3]'
+                      ? 'bg-[--color-gold] hover:bg-[--color-gold-hover] text-white'
+                      : 'border-[--color-border] hover:bg-[--color-surface-muted]'
                   }`}
                 >
                   <Filter className="mr-2 h-4 w-4" />
@@ -158,8 +141,8 @@ export default function UploadHistoryPage() {
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <Loader2 className="h-10 w-10 animate-spin text-[#ff9d7e]" />
-            <p className="font-nunito text-[#9a9286]">Loading upload history...</p>
+            <Loader2 className="h-10 w-10 animate-spin text-[--color-gold]" />
+            <p className="font-nunito text-[--color-text-secondary]">Loading upload history...</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -169,19 +152,19 @@ export default function UploadHistoryPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-[#e5e1d7] hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl overflow-hidden shadow-sm border border-[--color-border] hover:shadow-md transition-shadow"
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-[#ff9d7e] to-[#f5826b] rounded-xl flex items-center justify-center">
-                        <Calendar className="h-7 w-7 text-white" />
+                      <div className="w-14 h-14 bg-[--color-gold-tint] rounded-lg flex items-center justify-center">
+                        <Calendar className="h-7 w-7 text-[--color-gold]" />
                       </div>
                       <div>
-                        <h3 className="font-jakarta text-xl font-bold text-[#1f1b16] mb-1">
+                        <h3 className="font-jakarta text-xl font-bold text-[--color-text-primary] mb-1">
                           {formatDate(record.date)}
                         </h3>
-                        <p className="font-nunito text-sm text-[#9a9286]">
+                        <p className="font-nunito text-sm text-[--color-text-secondary]">
                           {formatTime(record.firstUploadAt)}
                           {record.photoCount > 1 && ` – ${formatTime(record.lastUploadAt)}`}
                           {' · '}
@@ -189,7 +172,7 @@ export default function UploadHistoryPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge className="bg-[#ff9d7e] text-white font-nunito text-base px-4 py-2">
+                    <Badge variant="label" className="bg-[--color-gold] text-white font-nunito text-base px-4 py-2 hover:bg-[--color-gold-hover] hover:text-white">
                       <ImageIcon className="mr-2 h-4 w-4" />
                       {record.photoCount} photo{record.photoCount === 1 ? '' : 's'}
                     </Badge>
@@ -199,7 +182,7 @@ export default function UploadHistoryPage() {
                     {record.thumbnails.map((thumbnail) => (
                       <div
                         key={thumbnail.id}
-                        className="relative w-24 h-32 rounded-lg overflow-hidden border-2 border-[#e5e1d7] hover:border-[#ff9d7e] transition-colors bg-[#f7f6f3]"
+                        className="relative w-24 h-32 rounded-lg overflow-hidden border-2 border-[--color-border] hover:border-[--color-gold] transition-colors bg-[--color-surface-muted]"
                       >
                         {thumbnail.imageUrl ? (
                           <img
@@ -209,18 +192,18 @@ export default function UploadHistoryPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="h-8 w-8 text-[#e8e3d8]" />
+                            <ImageIcon className="h-8 w-8 text-[--color-border]" />
                           </div>
                         )}
                       </div>
                     ))}
                     {record.photoCount > 3 && (
-                      <div className="w-24 h-32 rounded-lg bg-[#f7f6f3] border-2 border-dashed border-[#e5e1d7] flex items-center justify-center">
+                      <div className="w-24 h-32 rounded-lg bg-[--color-surface-muted] border-2 border-dashed border-[--color-border] flex items-center justify-center">
                         <div className="text-center">
-                          <p className="font-jakarta text-2xl font-bold text-[#1f1b16]">
+                          <p className="font-jakarta text-2xl font-bold text-[--color-text-primary]">
                             +{record.photoCount - 3}
                           </p>
-                          <p className="font-nunito text-xs text-[#9a9286]">more</p>
+                          <p className="font-nunito text-xs text-[--color-text-secondary]">more</p>
                         </div>
                       </div>
                     )}
@@ -231,7 +214,7 @@ export default function UploadHistoryPage() {
                       {record.photos.map((photo) => (
                         <div
                           key={photo.id}
-                          className="rounded-lg overflow-hidden border border-[#e5e1d7] bg-[#f7f6f3]"
+                          className="rounded-lg overflow-hidden border border-[--color-border] bg-[--color-surface-muted]"
                         >
                           {photo.imageUrl ? (
                             <img
@@ -241,14 +224,14 @@ export default function UploadHistoryPage() {
                             />
                           ) : (
                             <div className="w-full aspect-[3/4] flex items-center justify-center">
-                              <ImageIcon className="h-8 w-8 text-[#e8e3d8]" />
+                              <ImageIcon className="h-8 w-8 text-[--color-border]" />
                             </div>
                           )}
                           <div className="p-2">
-                            <p className="font-nunito text-[10px] text-[#9a9286] truncate">
+                            <p className="font-nunito text-[10px] text-[--color-text-secondary] truncate">
                               {photo.filename}
                             </p>
-                            <p className="font-nunito text-[10px] text-[#9a9286]">
+                            <p className="font-nunito text-[10px] text-[--color-text-secondary]">
                               {formatTime(photo.createdAt)}
                             </p>
                           </div>
@@ -257,10 +240,10 @@ export default function UploadHistoryPage() {
                     </div>
                   )}
 
-                  <div className="flex gap-3 pt-4 border-t border-[#e5e1d7]">
+                  <div className="flex gap-3 pt-4 border-t border-[--color-border]">
                     <Button
                       variant="outline"
-                      className="flex-1 font-nunito border-[#e5e1d7] hover:bg-[#f7f6f3]"
+                      className="flex-1 font-nunito border-[--color-border] hover:bg-[--color-surface-muted]"
                       onClick={() =>
                         setExpandedDayId(expandedDayId === record.id ? null : record.id)
                       }
@@ -270,7 +253,7 @@ export default function UploadHistoryPage() {
                     {record.photos[0]?.imageUrl && (
                       <Button
                         variant="outline"
-                        className="font-nunito border-[#e5e1d7] hover:bg-[#f7f6f3]"
+                        className="font-nunito border-[--color-border] hover:bg-[--color-surface-muted]"
                         onClick={() =>
                           handleDownload(record.photos[0].imageUrl, record.photos[0].filename)
                         }
@@ -289,13 +272,13 @@ export default function UploadHistoryPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-white rounded-2xl p-16 text-center shadow-sm border border-[#e5e1d7]"
+            className="bg-white rounded-xl p-16 text-center shadow-sm border border-[--color-border]"
           >
-            <ImageIcon className="h-24 w-24 text-[#e8e3d8] mx-auto mb-6" />
-            <h3 className="font-jakarta text-2xl font-bold text-[#1f1b16] mb-2">
+            <ImageIcon className="h-24 w-24 text-[--color-border] mx-auto mb-6" />
+            <h3 className="font-jakarta text-2xl font-bold text-[--color-text-primary] mb-2">
               No upload history found
             </h3>
-            <p className="font-nunito text-[#9a9286] mb-6">
+            <p className="font-nunito text-[--color-text-secondary] mb-6">
               {history.length === 0
                 ? 'Upload photos from the studio page to see them here.'
                 : 'Try adjusting your search or filter criteria.'}
@@ -303,7 +286,7 @@ export default function UploadHistoryPage() {
             {history.length === 0 && (
               <Button
                 onClick={() => router.push('/photographer')}
-                className="bg-gradient-to-r from-[#ff9d7e] to-[#f5826b] text-white"
+                className="bg-[--color-gold] hover:bg-[--color-gold-hover] text-white"
               >
                 Go to Upload Studio
               </Button>

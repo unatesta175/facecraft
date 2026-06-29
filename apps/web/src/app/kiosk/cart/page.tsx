@@ -2,15 +2,18 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Trash2, QrCode, CreditCard, Banknote, Check, ArrowLeft, Tag, Package, Sparkles, Printer, ImageOff } from 'lucide-react';
+import { ShoppingCart, Trash2, QrCode, CreditCard, Banknote, Check, Tag, Package, Sparkles, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { KioskHeader } from '@/components/kiosk/kiosk-header';
+import { KioskPageBody, KioskScrollArea, KioskShell, KioskStickyFooter } from '@/components/kiosk/kiosk-shell';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useKioskCart } from '@/hooks/use-kiosk-cart';
 import { kioskApi, type KioskOrderResult } from '@/lib/kiosk-api';
 import type { KioskCartPackage } from '@/lib/kiosk-cart';
+import { kioskBtnPrimary, kioskBtnOutline, kioskCard } from '@/lib/kiosk-ui';
 
 interface PaymentModalProps {
   total: number;
@@ -68,7 +71,7 @@ function PaymentModal({ total, onClose, onPaymentSuccess, onConfirmPayment }: Pa
         className="w-full max-w-2xl bg-white rounded-3xl overflow-hidden shadow-2xl"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] px-6 md:px-8 py-6 text-white">
+        <div className="bg-[--color-gold] px-6 py-5 text-white">
           <h3 className="font-jakarta text-2xl font-bold mb-1">
             Select Payment Method
           </h3>
@@ -226,7 +229,7 @@ function PaymentModal({ total, onClose, onPaymentSuccess, onConfirmPayment }: Pa
                 onClick={handlePayment}
                 disabled={!selectedMethod}
                 size="lg"
-                className="flex-1 bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta py-6 rounded-2xl disabled:opacity-50 shadow-md hover:shadow-lg transition-all"
+                className={`flex-1 rounded-2xl py-5 ${kioskBtnPrimary}`}
               >
                 Confirm Payment
               </Button>
@@ -378,9 +381,9 @@ export default function CartPage() {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-[#f9f9f7] flex items-center justify-center p-8">
-        <p className="font-nunito text-[#6b6b6b]">Loading cart...</p>
-      </div>
+      <KioskShell fixed className="items-center justify-center">
+        <p className="font-nunito text-sm text-[--color-text-secondary]">Loading cart...</p>
+      </KioskShell>
     );
   }
 
@@ -507,329 +510,235 @@ export default function CartPage() {
         </div>
 
         {/* Screen Display */}
-        <div className="print:hidden min-h-screen bg-[#f9f9f7] flex items-center justify-center p-4 md:p-8">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-lg w-full bg-white rounded-3xl overflow-hidden shadow-2xl"
-        >
-          {/* Success Header */}
-          <div className="bg-gradient-to-br from-[#eef3e3] to-[#e0ead1] p-8 text-center border-b border-[#d0e0b8]">
+        <div className="print:hidden">
+        <KioskShell fixed className="bg-white">
+          <KioskHeader title="Payment Complete" subtitle="Your order is confirmed" />
+          <KioskPageBody className="px-4 py-3">
             <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-              className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-[#6fcf97] to-[#56b881] flex items-center justify-center shadow-lg"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`${kioskCard} flex min-h-0 flex-1 flex-col overflow-hidden shadow-md`}
             >
-              <Check className="h-10 w-10 text-white" />
-            </motion.div>
-
-            <h3 className="font-jakarta text-3xl font-bold text-[#1f1b16] mb-2">
-              Payment Successful!
-            </h3>
-            <p className="font-nunito text-base text-[#6b6b6b]">
-              Your order has been confirmed
-            </p>
-          </div>
-
-          <div className="p-8">
-            {/* Order Details */}
-            <div className="bg-[#fafafa] rounded-2xl p-6 mb-6 border border-[#f0f0f0]">
-              <div className="flex items-center justify-between mb-4">
-                <span className="font-nunito text-sm text-[#6b6b6b]">Order Number</span>
-                <span className="font-jakarta text-lg font-bold text-[#1f1b16]">{orderNumber}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-nunito text-sm text-[#6b6b6b]">Total Paid</span>
-                <span className="font-jakarta text-xl font-bold bg-gradient-to-r from-[#c9982f] to-[#b8872a] bg-clip-text text-transparent">
-                  RM {receiptTotal.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            {/* QR Code for Digital Photos */}
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 mb-4">
-                <Sparkles className="h-5 w-5 text-[#c9982f]" />
-                <p className="font-jakarta font-semibold text-base text-[#1f1b16]">
-                  Your Digital Photos
+              <div className="shrink-0 border-b border-[--color-border] bg-[--color-success-bg] p-5 text-center">
+                <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[--color-success-text] shadow-md">
+                  <Check className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="font-jakarta text-xl font-bold text-[--color-text-primary]">
+                  Payment Successful!
+                </h3>
+                <p className="mt-1 font-nunito text-sm text-[--color-text-secondary]">
+                  Order {orderNumber}
                 </p>
               </div>
-              <div className="bg-white rounded-2xl p-6 border-2 border-[#f0f0f0] shadow-sm mb-4">
-                <div className="w-48 h-48 mx-auto bg-[#fafafa] rounded-xl flex items-center justify-center border-2 border-dashed border-[#e0e0e0]">
-                  <QrCode className="h-32 w-32 text-[#c9982f]" />
-                </div>
-              </div>
-              <p className="font-nunito text-sm text-[#6b6b6b] leading-relaxed">
-                Scan this QR code to access and download your digital photos instantly
-              </p>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <Button
-                onClick={handlePrintReceipt}
-                variant="outline"
-                className="w-full font-jakarta border-2 border-[#e0e0e0] text-[#1f1b16] hover:text-[#1f1b16] hover:bg-[#fafafa] hover:border-[#c9982f] py-6 rounded-2xl"
-              >
-                <Printer className="mr-2 h-5 w-5" />
-                Print Receipt
-              </Button>
-              
-              <Button
-                onClick={() => router.push('/kiosk/home')}
-                className="w-full bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta py-6 rounded-2xl shadow-md hover:shadow-lg transition-all"
-              >
-                Return to Home
-              </Button>
-            </div>
-          </div>
-        </motion.div>
+              <KioskScrollArea className="p-4">
+                <div className="mb-4 rounded-xl border border-[--color-border] bg-[--color-surface-muted] p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-nunito text-sm text-[--color-text-secondary]">Total Paid</span>
+                    <span className="font-jakarta text-xl font-bold text-[--color-gold]">
+                      RM {receiptTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-4 text-center">
+                  <div className="mb-2 inline-flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-[--color-gold]" />
+                    <p className="font-jakarta text-sm font-semibold">Digital Photos</p>
+                  </div>
+                  <div className="rounded-xl border-2 border-dashed border-[--color-border] bg-[--color-surface-muted] p-6">
+                    <QrCode className="mx-auto h-24 w-24 text-[--color-gold]" />
+                  </div>
+                  <p className="mt-3 font-nunito text-xs text-[--color-text-secondary]">
+                    Scan to access your digital photos
+                  </p>
+                </div>
+              </KioskScrollArea>
+
+              <div className="shrink-0 space-y-2 border-t border-[--color-border] p-4">
+                <Button
+                  onClick={handlePrintReceipt}
+                  variant="outline"
+                  className={`h-12 w-full rounded-2xl ${kioskBtnOutline}`}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Receipt
+                </Button>
+                <Button
+                  onClick={() => router.push('/kiosk/home')}
+                  className={`h-14 w-full rounded-2xl ${kioskBtnPrimary}`}
+                >
+                  Return to Home
+                </Button>
+              </div>
+            </motion.div>
+          </KioskPageBody>
+        </KioskShell>
         </div>
       </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f9f9f7] p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <Button
-            onClick={() => router.back()}
-            variant="ghost"
-            className="mb-4 text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-[#f5f5f5] rounded-xl transition-colors"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Shop
-          </Button>
-          <h2 className="font-jakarta text-3xl md:text-4xl font-bold text-[#1f1b16] mb-2">
-            Your Cart
-          </h2>
-          <p className="font-nunito text-base md:text-lg text-[#6b6b6b]">
-            Review your order before checkout
-          </p>
-        </motion.div>
+    <KioskShell fixed className="bg-white">
+      <KioskHeader
+        title="Your Cart"
+        subtitle="Review before checkout"
+        onBack={() => router.back()}
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Cart Items */}
-          <div className="lg:col-span-2">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-[#f0f0f0]"
-            >
-              <h3 className="font-jakarta text-xl font-bold text-[#1f1b16] mb-6 flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5 text-[#c9982f]" />
+      <KioskPageBody>
+        <KioskScrollArea className="px-4 py-3">
+          <div className="space-y-4 pb-4">
+            <div className={`${kioskCard} p-4`}>
+              <h3 className="mb-4 flex items-center gap-2 font-jakarta text-base font-bold">
+                <ShoppingCart className="h-4 w-4 text-[--color-gold]" />
                 Order Items
               </h3>
 
-              <div className="space-y-6">
-                {cartItems.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <ShoppingCart className="mx-auto mb-4 h-12 w-12 text-[#c9982f]" />
-                    <p className="font-jakarta text-lg font-semibold text-[#1f1b16] mb-2">
-                      Your cart is empty
-                    </p>
-                    <p className="font-nunito text-sm text-[#6b6b6b] mb-6">
-                      Add packages from the shop to get started.
-                    </p>
-                    <Button
-                      onClick={() => router.push('/kiosk/shop')}
-                      className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta rounded-xl"
-                    >
-                      Back to Shop
-                    </Button>
-                  </div>
-                ) : (
-                  cartItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group"
-                  >
-                    <div className="flex items-start gap-4 pb-4 border-b border-[#f0f0f0] last:border-b-0 last:pb-0">
-                      <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-[#fbf3df] to-[#f7f0d8] flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
-                        {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Package className="h-10 w-10 md:h-12 md:w-12 text-[#c9982f]" />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-jakarta text-lg md:text-xl font-bold text-[#1f1b16] mb-1">
-                              {item.name}
-                            </h4>
-                            {item.description ? (
-                              <p className="font-nunito text-sm text-[#6b6b6b]">
-                                {item.description}
-                              </p>
-                            ) : null}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveItem(item)}
-                            className="text-[#ff6b6b] hover:text-[#ee5a52] hover:bg-[#fff0f0] rounded-xl flex-shrink-0"
-                          >
-                            <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2 mb-3">
-                          {item.products.map((product) => (
-                            <div
-                              key={product.id}
-                              className="flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-[#fafafa] p-3"
-                            >
-                              {product.imageUrl ? (
-                                <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[#f0f0f0] bg-white">
-                                  <img
-                                    src={product.imageUrl}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-[#f0f0f0] bg-white">
-                                  <ImageOff className="h-4 w-4 text-[#9a9286]" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-jakarta text-sm font-semibold text-[#1f1b16]">
-                                  {product.name}
-                                </p>
-                                <p className="font-nunito text-xs text-[#6b6b6b]">
-                                  {product.assignments.length} / {product.photoCount} photo(s) assigned
-                                </p>
-                              </div>
-                              <Badge className="bg-white text-[#1f1b16] border border-[#e0e0e0] font-nunito text-xs">
-                                Qty {product.quantity}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center justify-end">
-                          <span className="font-jakarta text-xl md:text-2xl font-bold bg-gradient-to-r from-[#c9982f] to-[#b8872a] bg-clip-text text-transparent">
-                            RM {item.price.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Right Column - Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
-              {/* Discount Code */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white rounded-3xl p-6 shadow-md border border-[#f0f0f0]"
-              >
-                <label className="font-jakarta font-semibold text-base text-[#1f1b16] mb-4 flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-[#c9982f]" />
-                  Discount Code
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter code"
-                    value={discountCode}
-                    onChange={(e) => setDiscountCode(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        void handleApplyDiscount();
-                      }
-                    }}
-                    className="flex-1 font-jakarta h-11 bg-[#fafafa] border-[#e0e0e0] focus:border-[#c9982f]"
-                  />
+              {cartItems.length === 0 ? (
+                <div className="py-8 text-center">
+                  <ShoppingCart className="mx-auto mb-3 h-10 w-10 text-[--color-gold]" />
+                  <p className="font-jakarta font-semibold">Your cart is empty</p>
+                  <p className="mb-4 font-nunito text-xs text-[--color-text-secondary]">
+                    Add packages from the shop
+                  </p>
                   <Button
-                    onClick={() => void handleApplyDiscount()}
-                    disabled={isApplyingDiscount || cartItems.length === 0}
-                    className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta px-6 rounded-xl shadow-sm disabled:opacity-50"
+                    onClick={() => router.push('/kiosk/shop')}
+                    className={`rounded-xl ${kioskBtnPrimary}`}
                   >
-                    {isApplyingDiscount ? 'Applying...' : 'Apply'}
+                    Back to Shop
                   </Button>
                 </div>
-                {appliedDiscount && (
-                  <p className="mt-3 font-nunito text-sm text-[#56b881]">
-                    Code <span className="font-semibold">{appliedDiscount.code}</span> applied
-                  </p>
-                )}
-              </motion.div>
-
-              {/* Order Summary */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="bg-white rounded-3xl p-6 shadow-md border border-[#f0f0f0]"
-              >
-                <h3 className="font-jakarta text-lg font-bold text-[#1f1b16] mb-6">
-                  Order Summary
-                </h3>
-
+              ) : (
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-nunito text-[#6b6b6b]">Subtotal</span>
-                    <span className="font-jakarta font-semibold text-[#1f1b16]">
-                      RM {subtotal.toFixed(2)}
-                    </span>
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="border-b border-[--color-border] pb-4 last:border-0 last:pb-0">
+                      <div className="flex gap-3">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[--color-gold-tint]">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <Package className="h-7 w-7 text-[--color-gold]" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h4 className="font-jakarta text-sm font-bold">{item.name}</h4>
+                              {item.description ? (
+                                <p className="font-nunito text-xs text-[--color-text-secondary]">
+                                  {item.description}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveItem(item)}
+                              className="h-8 w-8 shrink-0 text-[--color-danger-text] hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="mt-2 space-y-1.5">
+                            {item.products.map((product) => (
+                              <div
+                                key={product.id}
+                                className="flex items-center gap-2 rounded-lg border border-[--color-border] bg-[--color-surface-muted] p-2"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-jakarta text-xs font-semibold">{product.name}</p>
+                                  <p className="font-nunito text-[10px] text-[--color-text-secondary]">
+                                    {product.assignments.length}/{product.photoCount} photos
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className="text-[10px]">
+                                  Qty {product.quantity}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="mt-2 text-right font-jakarta text-base font-bold text-[--color-gold]">
+                            RM {item.price.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {cartItems.length > 0 ? (
+              <>
+                <div className={`${kioskCard} p-4`}>
+                  <label className="mb-3 flex items-center gap-2 font-jakarta text-sm font-semibold">
+                    <Tag className="h-4 w-4 text-[--color-gold]" />
+                    Discount Code
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter code"
+                      value={discountCode}
+                      onChange={(e) => setDiscountCode(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void handleApplyDiscount();
+                      }}
+                      className="h-11 flex-1 bg-[--color-surface-muted] border-[--color-border]"
+                    />
+                    <Button
+                      onClick={() => void handleApplyDiscount()}
+                      disabled={isApplyingDiscount}
+                      className={`h-11 rounded-xl px-4 ${kioskBtnPrimary}`}
+                    >
+                      {isApplyingDiscount ? '...' : 'Apply'}
+                    </Button>
                   </div>
-                  
-                  {discount > 0 && (
-                    <div className="flex justify-between items-center text-[#56b881]">
-                      <span className="font-nunito">Discount</span>
-                      <span className="font-jakarta font-semibold">
-                        -RM {discount.toFixed(2)}
-                      </span>
+                  {appliedDiscount ? (
+                    <p className="mt-2 font-nunito text-xs text-[--color-success-text]">
+                      Code {appliedDiscount.code} applied
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className={`${kioskCard} p-4`}>
+                  <h3 className="mb-3 font-jakarta text-sm font-bold">Order Summary</h3>
+                  <div className="space-y-2 font-nunito text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-[--color-text-secondary]">Subtotal</span>
+                      <span className="font-jakarta font-semibold">RM {subtotal.toFixed(2)}</span>
                     </div>
-                  )}
-                  
-                  <div className="pt-4 border-t border-[#f0f0f0]">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-jakarta text-base font-bold text-[#1f1b16]">
-                        Total Amount
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-jakarta text-3xl font-bold bg-gradient-to-r from-[#c9982f] to-[#b8872a] bg-clip-text text-transparent">
+                    {discount > 0 ? (
+                      <div className="flex justify-between text-[--color-success-text]">
+                        <span>Discount</span>
+                        <span className="font-jakarta font-semibold">-RM {discount.toFixed(2)}</span>
+                      </div>
+                    ) : null}
+                    <div className="flex justify-between border-t border-[--color-border] pt-2">
+                      <span className="font-jakarta font-bold">Total</span>
+                      <span className="font-jakarta text-xl font-bold text-[--color-gold]">
                         RM {total.toFixed(2)}
                       </span>
                     </div>
                   </div>
                 </div>
-
-                <Button
-                  onClick={() => setShowPaymentModal(true)}
-                  disabled={cartItems.length === 0}
-                  className="w-full mt-6 bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta text-lg py-7 rounded-2xl shadow-md hover:shadow-lg transition-all disabled:opacity-50"
-                >
-                  Proceed to Payment
-                </Button>
-              </motion.div>
-            </div>
+              </>
+            ) : null}
           </div>
-        </div>
-      </div>
+        </KioskScrollArea>
+      </KioskPageBody>
+
+      {cartItems.length > 0 ? (
+        <KioskStickyFooter>
+          <Button
+            onClick={() => setShowPaymentModal(true)}
+            className={`h-14 w-full rounded-2xl text-base ${kioskBtnPrimary}`}
+          >
+            Proceed to Payment · RM {total.toFixed(2)}
+          </Button>
+        </KioskStickyFooter>
+      ) : null}
 
       {/* Payment Modal */}
       <AnimatePresence>
@@ -857,6 +766,6 @@ export default function CartPage() {
           }
         }
       `}</style>
-    </div>
+    </KioskShell>
   );
 }

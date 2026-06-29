@@ -18,6 +18,7 @@
     "db:import-combo-items": "tsx prisma/import-combo-items.ts",
     "db:reindex-faces": "tsx prisma/reindex-faces.ts",
     "s3:upload-catalog": "tsx prisma/upload-catalog-to-s3.ts",
+    "s3:upload-brand-logo": "tsx prisma/upload-brand-logo.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset"
   },

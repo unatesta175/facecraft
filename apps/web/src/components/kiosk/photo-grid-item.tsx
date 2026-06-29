@@ -37,14 +37,14 @@ export const PhotoGridItem = memo(function PhotoGridItem({
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: Math.min(index * 0.05, 0.5) }}
-      className="group relative"
+      className="group relative p-1"
     >
       <div
         onClick={() => onToggle(id)}
         className={`relative ${KIOSK_FRAME_ASPECT_CLASS} cursor-pointer overflow-hidden rounded-2xl transition-all shadow-md hover:shadow-xl ${
           isSelected
-            ? 'scale-[1.02] shadow-2xl ring-4 ring-[#c9982f]'
-            : 'ring-1 ring-[#f0f0f0] hover:ring-2 hover:ring-[#e0e0e0]'
+            ? 'shadow-2xl ring-4 ring-[--color-gold]'
+            : 'ring-1 ring-[--color-border] hover:ring-2 hover:ring-[--color-border]'
         }`}
       >
         <KioskFramedImage
@@ -58,7 +58,7 @@ export const PhotoGridItem = memo(function PhotoGridItem({
           <div
             className={`flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-all ${
               isSelected
-                ? 'scale-110 bg-gradient-to-br from-[#c9982f] to-[#b8872a]'
+                ? 'scale-110 bg-[--color-gold]'
                 : 'bg-white/95 backdrop-blur-sm'
             }`}
           >

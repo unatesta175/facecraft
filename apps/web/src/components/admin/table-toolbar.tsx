@@ -25,12 +25,12 @@ export function TableToolbar({ searchValue, onSearchChange, onRefresh, onExport,
           className="pl-10"
         />
       </div>
-      <Button variant="outline" onClick={onRefresh} className="text-[--color-chocolate]">
+      <Button variant="outline" onClick={onRefresh} className="text-[--color-gold] border-[--color-border] hover:bg-[--color-surface-muted]">
         <RefreshCw className="h-4 w-4 mr-2" />
         Refresh
       </Button>
       {onExport && (
-        <Button variant="outline" onClick={onExport} className="text-[--color-chocolate]">
+        <Button variant="outline" onClick={onExport} className="text-[--color-gold] border-[--color-border] hover:bg-[--color-surface-muted]">
           <Download className="h-4 w-4 mr-2" />
           Export Excel
         </Button>

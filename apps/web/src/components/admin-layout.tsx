@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { authApi, AuthUser, formatUserRole, getUserInitials } from '@/lib/auth-api';
+import { AdminBrandLogo } from '@/components/admin-brand-logo';
 
 interface NavItem { label: string; href?: string; icon: any; items?: NavItem[]; }
 
@@ -104,7 +105,7 @@ function NavLeaf({ item, siblingHrefs = [] }: { item: NavItem; siblingHrefs?: st
       className={cn(
         'flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors relative',
         isActive
-          ? 'bg-[--color-gold-tint] text-[--color-gold-tint-text] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-[--color-gold] rounded-none'
+          ? 'bg-[--color-gold-tint] text-[--color-gold-tint-text] font-medium before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-[--color-gold] rounded-none'
           : 'text-[--color-text-nav] hover:bg-[--color-surface-muted]',
       )}
     >
@@ -157,16 +158,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className="w-64 border-r border-[--color-border-subtle] bg-white flex flex-col flex-shrink-0">
         {/* Logo */}
-        <div className="px-5 py-4 border-b border-[--color-border-subtle]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-[--color-gold] rounded-lg flex items-center justify-center flex-shrink-0">
-              <Camera className="w-4 h-4 text-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[--color-text-primary] leading-tight">FACE CRAFT STUDIO</p>
-              <p className="text-[10px] text-[--color-text-secondary] leading-tight truncate">WHERE TECHNOLOGY MEETS TRADITION</p>
-            </div>
-          </div>
+        <div className="px-4 py-4 border-b border-[--color-border-subtle]">
+          <Link href="/admin" className="block">
+            <AdminBrandLogo />
+          </Link>
         </div>
 
         {/* Nav */}

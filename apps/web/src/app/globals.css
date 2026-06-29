@@ -12,16 +12,19 @@
     --color-border: #e8e3d8;
     --color-border-subtle: #ececec;
     --color-text-primary: #1f1b16;
-    --color-text-secondary: #9a9286;
-    --color-text-nav: #4b463d;
+    --color-text-secondary: #8a8172;
+    --color-text-nav: #5c5346;
 
-    /* Brand Accents */
-    --color-gold: #c9982f;
-    --color-gold-tint: #fbf3df;
-    --color-gold-tint-text: #8a6a1f;
-    
-    --color-chocolate: #5c3a21;
-    --color-chocolate-tint: #f3eee5;
+    /* FaceCraft Brand Palette */
+    --color-gold: #a77435;
+    --color-gold-hover: #8f632e;
+    --color-caramel: #f5da95;
+    --color-blond: #fbf7bc;
+    --color-gold-tint: #fbf7bc;
+    --color-gold-tint-text: #7a5528;
+
+    --color-chocolate: #7a5528;
+    --color-chocolate-tint: #f5ead0;
     
     /* Status Colors */
     --color-success-bg: #eef3e3;
@@ -35,19 +38,19 @@
     --card-foreground: 20 20% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 20 20% 10%;
-    --primary: 40 69% 49%;
-    --primary-foreground: 40 100% 97%;
-    --secondary: 28 48% 24%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 40 15% 96%;
-    --muted-foreground: 35 12% 58%;
-    --accent: 40 69% 49%;
-    --accent-foreground: 40 100% 97%;
+    --primary: 32 52% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 45 80% 77%;
+    --secondary-foreground: 32 52% 24%;
+    --muted: 0 0% 97%;
+    --muted-foreground: 35 12% 46%;
+    --accent: 45 80% 77%;
+    --accent-foreground: 32 52% 24%;
     --destructive: 0 65% 42%;
     --destructive-foreground: 0 0% 100%;
     --border: 40 20% 89%;
-    --input: 40 15% 96%;
-    --ring: 40 69% 49%;
+    --input: 0 0% 97%;
+    --ring: 32 52% 43%;
     --radius: 0.75rem;
   }
 }
@@ -74,6 +77,46 @@
 }
 
 /* Responsive Kiosk & Desktop Styles */
+
+/* Portrait kiosk shell — fixed on device, scrollable on laptop/mouse */
+.kiosk-shell {
+  width: 100%;
+  max-width: 1080px;
+  height: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.kiosk-shell--fixed {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.kiosk-shell--scrollable {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.kiosk-shell--scrollable .kiosk-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kiosk-shell--scrollable {
+    height: auto;
+    overflow-y: auto;
+  }
+}
+
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
 
 /* 21-inch Kiosk Screens (Touchscreen) - 1920x1080 and larger */
 @media screen and (min-width: 1920px) {

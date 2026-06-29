@@ -121,6 +121,45 @@ export class S3Service {
     return Buffer.concat(chunks);
   }
 
+  async getObjectStream(
+    key: string,
+    range?: { start: number; end: number }
+  ): Promise<{
+    body: NodeJS.ReadableStream;
+    contentLength: number;
+    contentType?: string;
+    totalSize: number;
+    rangeStart?: number;
+    rangeEnd?: number;
+  }> {
+    const head = await this.getObjectMetadata(key);
+    if (!head) {
+      throw new Error(`S3 object not found: ${key}`);
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Range: range ? `bytes=${range.start}-${range.end}` : undefined,
+    });
+
+    const result = await this.client.send(command);
+    const body = result.Body;
+
+    if (!body) {
+      throw new Error(`Empty S3 object: ${key}`);
+    }
+
+    return {
+      body: body as NodeJS.ReadableStream,
+      contentLength: result.ContentLength ?? head.contentLength,
+      contentType: result.ContentType ?? head.contentType,
+      totalSize: head.contentLength,
+      rangeStart: range?.start,
+      rangeEnd: range?.end,
+    };
+  }
+
   async getObjectMetadata(key: string): Promise<{ contentLength: number; contentType?: string } | null> {
     const command = new HeadObjectCommand({
       Bucket: this.bucketName,

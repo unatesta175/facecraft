@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Plus, Info, Check, AlertCircle, ArrowLeft, ImageOff } from 'lucide-react';
+import { ShoppingCart, Plus, Info, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { KioskHeader } from '@/components/kiosk/kiosk-header';
+import { KioskPageBody, KioskScrollArea, KioskShell, KioskStickyFooter } from '@/components/kiosk/kiosk-shell';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { AIPhotoEditorModal } from '@/components/kiosk/ai-photo-editor-modal';
@@ -18,6 +20,7 @@ import {
 } from '@/lib/kiosk-photo-session';
 import { KioskAlbumCard } from '@/components/kiosk/kiosk-album-card';
 import { normalizePhotoTransform, type PhotoTransform } from '@/components/kiosk/kiosk-framed-image';
+import { kioskBtnPrimary, kioskCard } from '@/lib/kiosk-ui';
 
 type AlbumImage = {
   id: string;
@@ -366,251 +369,182 @@ export default function ShopPage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-[#f9f9f7]">
-      <div className="max-w-[1920px] mx-auto p-4 md:p-8">
-        {/* Back Button */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="mb-4"
-        >
-          <Button
-            onClick={() => setShowBackConfirm(true)}
-            variant="ghost"
-            className="text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-[#f5f5f5] rounded-xl transition-colors"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-        </motion.div>
+    <KioskShell fixed className="bg-white">
+      <KioskHeader
+        title="Choose Package"
+        subtitle="Assign photos to products"
+        onBack={() => setShowBackConfirm(true)}
+      />
 
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h2 className="font-jakarta text-3xl md:text-4xl font-bold text-[#1f1b16] mb-2">
-            Choose Your Package
-          </h2>
-          <p className="font-nunito text-lg text-[#6b6b6b]">
-            Select products and assign your photos
-          </p>
-        </motion.div>
+      <KioskPageBody className="px-0">
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-0">
+          {/* Column 1 — Packages */}
+          <KioskScrollArea className="border-r border-[--color-border] px-3 py-2">
+            <div className="flex flex-col gap-3 pb-2">
+              {packagesLoading ? (
+                <div className={`${kioskCard} p-6 text-center`}>
+                  <p className="font-nunito text-xs text-[--color-text-secondary]">Loading packages...</p>
+                </div>
+              ) : packagesError ? (
+                <div className={`${kioskCard} p-6 text-center`}>
+                  <p className="font-nunito text-xs text-[--color-danger-text]">{packagesError}</p>
+                </div>
+              ) : packages.length === 0 ? (
+                <div className={`${kioskCard} p-6 text-center`}>
+                  <p className="font-nunito text-xs text-[--color-text-secondary]">No packages available.</p>
+                </div>
+              ) : (
+                packages.map((pkg, index) => {
+                const isInCart = cart.includes(pkg.id);
+                const totalRequired = pkg.products.reduce((sum, p) => sum + p.photoCount, 0);
+                const totalAssigned = pkg.products.reduce((sum, p) => {
+                  return sum + (productAssignments[pkg.id]?.[p.id]?.length || 0);
+                }, 0);
+                const progressPercent = totalRequired > 0 ? (totalAssigned / totalRequired) * 100 : 0;
 
-        {/* Main Content - 2 Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Packages */}
-          <div className="lg:col-span-2 space-y-6">
-            {packagesLoading ? (
-              <div className="rounded-2xl border border-[#f0f0f0] bg-white p-12 text-center shadow-md">
-                <p className="font-nunito text-[#6b6b6b]">Loading packages...</p>
-              </div>
-            ) : packagesError ? (
-              <div className="rounded-2xl border border-[#f0f0f0] bg-white p-12 text-center shadow-md">
-                <p className="font-nunito text-[#ff6b6b]">{packagesError}</p>
-              </div>
-            ) : packages.length === 0 ? (
-              <div className="rounded-2xl border border-[#f0f0f0] bg-white p-12 text-center shadow-md">
-                <p className="font-nunito text-[#6b6b6b]">No active packages available.</p>
-              </div>
-            ) : (
-              <>
-                {packages.map((pkg, index) => {
-                  const isInCart = cart.includes(pkg.id);
-                  const totalRequired = pkg.products.reduce((sum, p) => sum + p.photoCount, 0);
-                  const totalAssigned = pkg.products.reduce((sum, p) => {
-                    return sum + (productAssignments[pkg.id]?.[p.id]?.length || 0);
-                  }, 0);
-                  const progressPercent = totalRequired > 0 ? (totalAssigned / totalRequired) * 100 : 0;
-
-                  return (
-                    <motion.div
-                      key={pkg.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`bg-white rounded-2xl p-6 md:p-8 shadow-md border-2 transition-all ${
-                        isInCart
-                          ? 'border-[#c9982f] shadow-lg'
-                          : 'border-[#f0f0f0]'
-                      }`}
-                    >
-                  <div className="flex items-start gap-6 mb-6">
-                    <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#fbf3df] to-[#f7f0d8] shadow-sm md:h-32 md:w-32">
-                      {pkg.imageUrl ? (
-                        <img
-                          src={pkg.imageUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <ShoppingCart className="h-12 w-12 text-[#c9982f] md:h-16 md:w-16" />
-                      )}
-                    </div>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-jakarta text-xl md:text-2xl font-bold text-[#1f1b16]">
-                            {pkg.name}
-                          </h3>
-                          {pkg.description ? (
-                            <p className="font-nunito text-sm text-[#6b6b6b] mt-1">
-                              {pkg.description}
-                            </p>
-                          ) : null}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-[#9a9286] hover:text-[#1f1b16] hover:bg-[#fafafa]"
-                        >
-                          <Info className="h-5 w-5" />
-                        </Button>
+                return (
+                  <motion.div
+                    key={pkg.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`${kioskCard} border-2 p-3 shadow-sm ${
+                      isInCart ? 'border-[--color-gold]' : 'border-[--color-border]'
+                    }`}
+                  >
+                    <div className="mb-3 flex gap-3">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[--color-gold-tint]">
+                        {pkg.imageUrl ? (
+                          <img src={pkg.imageUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <ShoppingCart className="h-8 w-8 text-[--color-gold]" />
+                        )}
                       </div>
-                      
-                      <div className="flex items-baseline gap-2 mt-4">
-                        <span className="font-jakarta text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#c9982f] to-[#b8872a] bg-clip-text text-transparent">
-                          RM {pkg.price.toFixed(2)}
-                        </span>
-                        <span className="font-nunito text-sm text-[#9a9286]">
-                          / package
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="mb-6 bg-[#fafafa] rounded-xl p-4 border border-[#f0f0f0]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-nunito text-sm text-[#6b6b6b]">
-                        Package Progress
-                      </span>
-                      <span className="font-jakarta font-semibold text-[#1f1b16]">
-                        {totalAssigned} / {totalRequired} photos
-                      </span>
-                    </div>
-                    <div className="w-full bg-[#e0e0e0] rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] h-2 rounded-full transition-all"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Products */}
-                  <div className="space-y-3 mb-6">
-                    {pkg.products.map((product) => {
-                      const progress = getProductProgress(pkg.id, product.id, product.photoCount);
-                      
-                      return (
-                        <div
-                          key={product.id}
-                          className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                            progress.isComplete
-                              ? 'bg-gradient-to-r from-[#eef3e3] to-[#e8f0d9] border-[#436b35]'
-                              : 'bg-white border-[#f0f0f0]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            {product.imageUrl ? (
-                              <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-[#f0f0f0] bg-[#fafafa]">
-                                <img
-                                  src={product.imageUrl}
-                                  alt=""
-                                  className="h-full w-full object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg border border-[#f0f0f0] bg-[#fafafa]">
-                                <ImageOff className="h-4 w-4 text-[#9a9286]" />
-                              </div>
-                            )}
-                            {progress.isComplete && (
-                              <div className="w-7 h-7 rounded-full bg-[#436b35] flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <Check className="h-4 w-4 text-white" />
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <p className="font-jakarta font-semibold text-[#1f1b16]">
-                                {product.name}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-jakarta text-sm font-bold text-[--color-text-primary]">
+                              {pkg.name}
+                            </h3>
+                            {pkg.description ? (
+                              <p className="mt-0.5 font-nunito text-xs text-[--color-text-secondary]">
+                                {pkg.description}
                               </p>
-                              <p className="font-nunito text-sm text-[#6b6b6b]">
-                                {progress.current} / {progress.required} photo(s) assigned
-                              </p>
-                            </div>
+                            ) : null}
                           </div>
-                          
-                          <Button
-                            onClick={() => handleAddProduct(pkg, product)}
-                            disabled={progress.isComplete}
-                            size="sm"
-                            className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                            <Info className="h-4 w-4 text-[--color-text-secondary]" />
                           </Button>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <p className="mt-1 font-jakarta text-lg font-bold text-[--color-gold]">
+                          RM {pkg.price.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
 
-                  {/* Add to Cart */}
-                  <div className="flex items-center justify-between pt-6 border-t border-[#f0f0f0]">
-                    <div>
-                      <p className="font-nunito text-sm text-[#6b6b6b]">
-                        Total: {totalRequired} photos required
-                      </p>
+                    <div className="mb-4 rounded-xl border border-[--color-border] bg-[--color-surface-muted] p-3">
+                      <div className="mb-2 flex items-center justify-between text-xs">
+                        <span className="font-nunito text-[--color-text-secondary]">Progress</span>
+                        <span className="font-jakarta font-semibold">
+                          {totalAssigned} / {totalRequired}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-[--color-border]">
+                        <div
+                          className="h-2 rounded-full bg-[--color-gold] transition-all"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mb-4 space-y-2">
+                      {pkg.products.map((product) => {
+                        const progress = getProductProgress(pkg.id, product.id, product.photoCount);
+
+                        return (
+                          <div
+                            key={product.id}
+                            className={`flex items-center justify-between gap-2 rounded-xl border p-3 ${
+                              progress.isComplete
+                                ? 'border-[--color-success-text]/30 bg-[--color-success-bg]'
+                                : 'border-[--color-border] bg-white'
+                            }`}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              {progress.isComplete && (
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[--color-success-text]">
+                                  <Check className="h-3.5 w-3.5 text-white" />
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="truncate font-jakarta text-sm font-semibold">{product.name}</p>
+                                <p className="font-nunito text-xs text-[--color-text-secondary]">
+                                  {progress.current} / {progress.required} photos
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => handleAddProduct(pkg, product)}
+                              disabled={progress.isComplete}
+                              size="sm"
+                              className={`shrink-0 rounded-lg ${kioskBtnPrimary}`}
+                            >
+                              <Plus className="mr-1 h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 border-t border-[--color-border] pt-3">
                       {!canAddToCart(pkg) && (
-                        <p className="font-nunito text-xs text-[#ff6b6b] mt-1 flex items-center gap-1">
+                        <p className="flex items-center gap-1 font-nunito text-xs text-[--color-danger-text]">
                           <AlertCircle className="h-3 w-3" />
-                          Complete all products to add to cart
+                          Complete all products
                         </p>
                       )}
+                      <Button
+                        onClick={() => handleAddToCart(pkg.id)}
+                        disabled={!canAddToCart(pkg) || isInCart}
+                        className={`ml-auto h-11 rounded-xl px-5 ${kioskBtnPrimary}`}
+                      >
+                        {isInCart ? (
+                          <>
+                            <Check className="mr-1 h-4 w-4" />
+                            In Cart
+                          </>
+                        ) : (
+                          'Add to Cart'
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      onClick={() => handleAddToCart(pkg.id)}
-                      disabled={!canAddToCart(pkg) || isInCart}
-                      size="lg"
-                      className="bg-gradient-to-r from-[#1f1b16] to-[#3a3530] hover:from-[#000000] hover:to-[#1f1b16] text-white font-jakarta px-8 py-6 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all"
-                    >
-                      {isInCart ? (
-                        <>
-                          <Check className="mr-2 h-5 w-5" />
-                          In Cart
-                        </>
-                      ) : (
-                        'Add to Cart'
-                      )}
-                    </Button>
-                  </div>
-                    </motion.div>
-                  );
-                })}
-              </>
-            )}
-          </div>
+                  </motion.div>
+                );
+              })
+              )}
+            </div>
+          </KioskScrollArea>
 
-          {/* Right Column - Album */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-8">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white rounded-2xl p-6 shadow-md border border-[#f0f0f0]"
-              >
-                <h3 className="font-jakarta text-xl font-bold text-[#1f1b16] mb-2">
-                  Your Album
-                </h3>
-                <p className="font-nunito text-sm text-[#6b6b6b] mb-6">
-                  {selectedImages.size} image(s) selected • {totalSelectedQuantity} total quantity
+          {/* Column 2 — Album images */}
+          <div className="flex min-h-0 flex-col overflow-hidden">
+            <div className="shrink-0 border-b border-[--color-border] px-3 py-2">
+              <h3 className="font-jakarta text-sm font-bold text-[--color-text-primary]">Your Album</h3>
+              <p className="font-nunito text-[10px] text-[--color-text-secondary]">
+                {selectedImages.size} selected · {totalSelectedQuantity} qty
+              </p>
+            </div>
+            <KioskScrollArea className="px-3 py-2">
+              {albumImages.length === 0 ? (
+                <p className="py-6 text-center font-nunito text-xs text-[--color-text-secondary]">
+                  No photos in album
                 </p>
-
-                <div className="space-y-4 max-h-[600px] overflow-y-auto">
+              ) : (
+                <div className="flex flex-col gap-2 pb-2">
                   {albumImages.map((image) => (
                     <KioskAlbumCard
                       key={image.id}
+                      compact
                       image={{
                         id: image.id,
                         filename: image.filename,
@@ -628,32 +562,26 @@ export default function ShopPage() {
                     />
                   ))}
                 </div>
-              </motion.div>
-            </div>
+              )}
+            </KioskScrollArea>
           </div>
         </div>
+      </KioskPageBody>
 
-        {/* Floating Checkout Button */}
-        <AnimatePresence>
-          {cart.length > 0 && (
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
-              className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50"
+      <AnimatePresence>
+        {cart.length > 0 ? (
+          <KioskStickyFooter>
+            <Button
+              onClick={handleCheckout}
+              size="lg"
+              className={`h-14 w-full rounded-2xl text-base ${kioskBtnPrimary}`}
             >
-              <Button
-                onClick={handleCheckout}
-                size="lg"
-                className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta text-xl px-12 py-8 rounded-2xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105"
-              >
-                <ShoppingCart className="mr-3 h-6 w-6" />
-                Checkout Cart ({cart.length})
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <ShoppingCart className="mr-2 h-5 w-5" />
+              Checkout ({cart.length})
+            </Button>
+          </KioskStickyFooter>
+        ) : null}
+      </AnimatePresence>
 
       {/* Back Confirmation Modal */}
       <AnimatePresence>
@@ -680,14 +608,14 @@ export default function ShopPage() {
               <div className="flex flex-col gap-3">
                 <Button
                   onClick={() => setShowBackConfirm(false)}
-                  className="w-full rounded-2xl bg-gradient-to-r from-[#c9982f] to-[#b8872a] py-6 font-jakarta text-white shadow-md hover:from-[#b8872a] hover:to-[#a77824]"
+                  className={`w-full rounded-2xl py-5 ${kioskBtnPrimary}`}
                 >
                   Stay on Shop
                 </Button>
                 <Button
                   onClick={handleConfirmBack}
                   variant="outline"
-                  className="w-full rounded-2xl border-2 border-[#ff6b6b] py-6 font-jakarta text-[#ff6b6b] transition-all hover:border-[#ff6b6b] hover:bg-[#ff6b6b] hover:text-white"
+                  className="w-full rounded-2xl border-2 border-[--color-danger-text] py-5 font-jakarta text-[--color-danger-text] hover:bg-[--color-danger-text] hover:text-white"
                 >
                   Go to Capture
                 </Button>
@@ -727,14 +655,14 @@ export default function ShopPage() {
               <div className="flex flex-col gap-3">
                 <Button
                   onClick={handleCancelClear}
-                  className="w-full bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white font-jakarta py-6 rounded-2xl shadow-md"
+                  className={`w-full rounded-2xl py-5 ${kioskBtnPrimary}`}
                 >
                   Continue Current Package
                 </Button>
                 <Button
                   onClick={handleClearPrevious}
                   variant="outline"
-                  className="w-full border-2 border-[#ff6b6b] text-[#ff6b6b] hover:text-white hover:bg-[#ff6b6b] hover:border-[#ff6b6b] font-jakarta py-6 rounded-2xl transition-all"
+                  className="w-full rounded-2xl border-2 border-[--color-danger-text] py-5 font-jakarta text-[--color-danger-text] hover:bg-[--color-danger-text] hover:text-white"
                 >
                   Clear & Start New Package
                 </Button>
@@ -769,6 +697,6 @@ export default function ShopPage() {
           onClose={() => setFrameModalData(null)}
         />
       )}
-    </div>
+    </KioskShell>
   );
 }

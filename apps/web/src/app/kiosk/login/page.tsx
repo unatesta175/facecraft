@@ -3,12 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Lock, User, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Lock, LogIn, User } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { kioskApi, DemoAccounts } from '@/lib/kiosk-api';
 import { DemoCredentials } from '@/components/demo-credentials';
+import { BrandLogo } from '@/components/brand-logo';
+import { KioskShell } from '@/components/kiosk/kiosk-shell';
+import { kioskBtnPrimary, kioskCard, kioskInput } from '@/lib/kiosk-ui';
 
 export default function KioskLoginPage() {
   const router = useRouter();
@@ -67,100 +72,81 @@ export default function KioskLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f7f6f3]">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md px-6"
-      >
-        <div className="flex flex-col items-center mb-8">
-          <div className="mb-6">
-            <svg
-              width="80"
-              height="80"
-              viewBox="0 0 100 100"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle cx="50" cy="50" r="48" fill="#1f1b16" />
-              <circle cx="50" cy="50" r="40" fill="#d4af37" />
-              <circle cx="50" cy="50" r="32" fill="#1f1b16" />
-              <path
-                d="M35 45 Q50 35 65 45"
-                stroke="#d4af37"
-                strokeWidth="3"
-                fill="none"
-              />
-              <circle cx="42" cy="48" r="3" fill="#d4af37" />
-              <circle cx="58" cy="48" r="3" fill="#d4af37" />
-              <path
-                d="M40 60 Q50 68 60 60"
-                stroke="#d4af37"
-                strokeWidth="3"
-                fill="none"
-              />
-            </svg>
-          </div>
-          <h1 className="font-jakarta text-3xl font-bold text-[#1f1b16] mb-2">
-            Face Craft Studio
-          </h1>
-          <p className="font-nunito text-[#9a9286] text-center">
-            Where Technology Meets Tradition
-          </p>
-        </div>
+    <KioskShell fixed className="bg-white">
+      <div className="flex shrink-0 items-center px-4 py-3">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 rounded-xl px-2 py-2 font-nunito text-sm text-[--color-text-secondary] hover:bg-[--color-surface-muted] hover:text-[--color-text-primary]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Link>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-1">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex shrink-0 justify-center"
+        >
+          <BrandLogo
+            centered
+            className="justify-center"
+            imageClassName="h-24 w-auto max-w-[min(100%,260px)] object-contain mx-auto"
+          />
+        </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.3 }}
-          className="bg-white rounded-2xl shadow-lg p-8 border border-[#e5e1d7]"
+          transition={{ delay: 0.1 }}
+          className={`${kioskCard} shrink-0 p-6 shadow-md`}
         >
-          <div className="mb-6 text-center">
-            <h2 className="font-jakarta text-2xl font-bold text-[#1f1b16] mb-2">
+          <div className="mb-5 text-center">
+            <h2 className="font-jakarta text-xl font-bold text-[--color-text-primary]">
               Kiosk Login
             </h2>
-            <p className="font-nunito text-sm text-[#9a9286]">
-              Sign in with your kiosk account from the database
+            <p className="mt-1 font-nunito text-sm text-[--color-text-secondary]">
+              Sign in with your kiosk account
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <label className="font-nunito text-sm font-medium text-[#1f1b16] block">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="font-nunito text-sm font-medium text-[--color-text-primary]">
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#9a9286]" />
+                <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[--color-text-secondary]" />
                 <Input
                   type="text"
                   placeholder="Enter kiosk username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10 h-12 font-nunito bg-[#f7f6f3] border-[#e5e1d7] focus:border-[#d4af37] focus:ring-[#d4af37]/20"
+                  className={`pl-10 ${kioskInput}`}
                   disabled={isLoading}
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="font-nunito text-sm font-medium text-[#1f1b16] block">
+            <div className="space-y-1.5">
+              <label className="font-nunito text-sm font-medium text-[--color-text-primary]">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#9a9286]" />
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[--color-text-secondary]" />
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 h-12 font-nunito bg-[#f7f6f3] border-[#e5e1d7] focus:border-[#d4af37] focus:ring-[#d4af37]/20"
+                  className={`pl-10 pr-10 ${kioskInput}`}
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9286] hover:text-[#1f1b16] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[--color-text-secondary]"
                   disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -171,18 +157,19 @@ export default function KioskLoginPage() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 bg-[#d4af37] hover:bg-[#c49d2f] text-[#1f1b16] font-jakarta font-semibold text-base transition-all hover:shadow-lg disabled:opacity-50"
+              size="lg"
+              className={`h-14 w-full rounded-2xl text-base ${kioskBtnPrimary}`}
             >
               {isLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-5 w-5 border-3 border-[#1f1b16]/30 border-t-[#1f1b16] rounded-full animate-spin" />
-                  <span>Signing in...</span>
-                </div>
+                <span className="flex items-center gap-2">
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Signing in...
+                </span>
               ) : (
-                <div className="flex items-center justify-center gap-2">
+                <span className="flex items-center gap-2">
                   <LogIn className="h-5 w-5" />
-                  <span>Sign In</span>
-                </div>
+                  Sign In
+                </span>
               )}
             </Button>
           </form>
@@ -190,17 +177,10 @@ export default function KioskLoginPage() {
           <DemoCredentials accounts={demoAccounts} variant="kiosk" />
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.3 }}
-          className="mt-6 text-center"
-        >
-          <p className="font-nunito text-sm text-[#9a9286]">
-            Need help? Contact your supervisor
-          </p>
-        </motion.div>
-      </motion.div>
-    </div>
+        <p className="shrink-0 text-center font-nunito text-xs text-[--color-text-secondary]">
+          Need help? Contact your supervisor
+        </p>
+      </div>
+    </KioskShell>
   );
 }
