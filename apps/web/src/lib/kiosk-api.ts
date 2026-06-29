@@ -48,6 +48,22 @@ export type KioskShopPackage = {
   products: KioskShopProduct[];
 };
 
+export type KioskAiEffectItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+};
+
+export type KioskAiEffectUltraObject = KioskAiEffectItem & {
+  objects: KioskAiEffectItem[];
+};
+
+export type KioskAiEffectsCatalog = {
+  ultraObjects: KioskAiEffectUltraObject[];
+  objects: KioskAiEffectItem[];
+};
+
 export type KioskBrowsePhoto = {
   id: string;
   s3Key: string;
@@ -139,6 +155,8 @@ export const kioskApi = {
   },
 
   getActiveFrames: () => apiRequest<KioskFrame[]>('GET', '/api/v1/kiosks/frames'),
+
+  getAiEffects: () => apiRequest<KioskAiEffectsCatalog>('GET', '/api/v1/kiosks/ai-effects'),
 
   getShopPackages: () => apiRequest<KioskShopPackage[]>('GET', '/api/v1/kiosks/combos'),
 

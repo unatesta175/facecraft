@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   DEFAULT_PHOTO_TRANSFORM,
   KioskFramedImage,
+  pixelTransformToNormalized,
   type PhotoTransform,
 } from '@/components/kiosk/kiosk-framed-image';
 
@@ -15,8 +16,15 @@ interface PreviewModalProps {
   frameUrl?: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onApply: () => void;
+  onApply: (transforms: Record<string, PhotoTransform>) => void;
 }
+
+type PixelTransform = {
+  scale: number;
+  rotation: number;
+  offsetX: number;
+  offsetY: number;
+};
 
 type DragState = {
   pointerId: number;
@@ -26,29 +34,48 @@ type DragState = {
   originY: number;
 };
 
-function getPhotoTransform(map: Record<string, PhotoTransform>, photoId: string): PhotoTransform {
-  return map[photoId] ?? DEFAULT_PHOTO_TRANSFORM;
+function getPixelTransform(map: Record<string, PixelTransform>, photoId: string): PixelTransform {
+  return map[photoId] ?? {
+    scale: DEFAULT_PHOTO_TRANSFORM.scale,
+    rotation: DEFAULT_PHOTO_TRANSFORM.rotation,
+    offsetX: 0,
+    offsetY: 0,
+  };
+}
+
+/** Preview editing uses pixel offsets; convert to ratios when applying. */
+function pixelToFramedTransform(
+  transform: PixelTransform,
+  viewportWidth: number,
+  viewportHeight: number
+): PhotoTransform {
+  return pixelTransformToNormalized(transform, viewportWidth, viewportHeight);
 }
 
 export function PreviewModal({ photos, frameUrl = null, isOpen, onClose, onApply }: PreviewModalProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [transforms, setTransforms] = useState<Record<string, PhotoTransform>>({});
+  const [transforms, setTransforms] = useState<Record<string, PixelTransform>>({});
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<DragState | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const currentPhoto = photos[currentIndex];
   const currentTransform = currentPhoto
-    ? getPhotoTransform(transforms, currentPhoto.id)
-    : DEFAULT_PHOTO_TRANSFORM;
+    ? getPixelTransform(transforms, currentPhoto.id)
+    : {
+        scale: DEFAULT_PHOTO_TRANSFORM.scale,
+        rotation: DEFAULT_PHOTO_TRANSFORM.rotation,
+        offsetX: 0,
+        offsetY: 0,
+      };
 
   const updateCurrentTransform = useCallback(
-    (patch: Partial<PhotoTransform>) => {
+    (patch: Partial<PixelTransform>) => {
       if (!currentPhoto) return;
       setTransforms((prev) => ({
         ...prev,
         [currentPhoto.id]: {
-          ...getPhotoTransform(prev, currentPhoto.id),
+          ...getPixelTransform(prev, currentPhoto.id),
           ...patch,
         },
       }));
@@ -63,7 +90,12 @@ export function PreviewModal({ photos, frameUrl = null, isOpen, onClose, onApply
   const resetCurrentTransform = () => {
     setTransforms((prev) => ({
       ...prev,
-      [currentPhoto.id]: { ...DEFAULT_PHOTO_TRANSFORM },
+      [currentPhoto.id]: {
+        scale: DEFAULT_PHOTO_TRANSFORM.scale,
+        rotation: DEFAULT_PHOTO_TRANSFORM.rotation,
+        offsetX: 0,
+        offsetY: 0,
+      },
     }));
   };
 
@@ -182,7 +214,19 @@ export function PreviewModal({ photos, frameUrl = null, isOpen, onClose, onApply
                     photoUrl={currentPhoto.url}
                     frameUrl={frameUrl}
                     alt={`Photo ${currentIndex + 1}`}
-                    photoTransform={currentTransform}
+                    photoFit="contain"
+                    photoTransform={{
+                      scale: currentTransform.scale,
+                      rotation: currentTransform.rotation,
+                      offsetXRatio:
+                        viewportRef.current && viewportRef.current.clientWidth > 0
+                          ? currentTransform.offsetX / viewportRef.current.clientWidth
+                          : 0,
+                      offsetYRatio:
+                        viewportRef.current && viewportRef.current.clientHeight > 0
+                          ? currentTransform.offsetY / viewportRef.current.clientHeight
+                          : 0,
+                    }}
                   />
                 </motion.div>
               </AnimatePresence>
@@ -291,7 +335,24 @@ export function PreviewModal({ photos, frameUrl = null, isOpen, onClose, onApply
               </Button>
 
               <Button
-                onClick={onApply}
+                onClick={() => {
+                  const rect = viewportRef.current?.getBoundingClientRect();
+                  const viewportWidth = rect?.width ?? 1;
+                  const viewportHeight = rect?.height ?? 1;
+
+                  const appliedTransforms = photos.reduce<Record<string, PhotoTransform>>(
+                    (acc, photo) => {
+                      acc[photo.id] = pixelToFramedTransform(
+                        getPixelTransform(transforms, photo.id),
+                        viewportWidth,
+                        viewportHeight
+                      );
+                      return acc;
+                    },
+                    {}
+                  );
+                  onApply(appliedTransforms);
+                }}
                 size="lg"
                 className="w-full transform rounded-2xl bg-gradient-to-r from-[#c9982f] to-[#b8872a] px-12 py-6 font-jakarta text-base text-white shadow-lg transition-all hover:scale-105 hover:from-[#b8872a] hover:to-[#a77824] hover:shadow-xl md:text-lg sm:w-auto"
               >

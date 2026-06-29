@@ -272,6 +272,72 @@ kioskRouter.get('/frames', async (req, res) => {
   res.json(ApiResponseBuilder.success(resolved, requestId));
 });
 
+kioskRouter.get('/ai-effects', async (req, res) => {
+  const requestId = (req as any).id;
+
+  const [ultraObjects, allObjects] = await Promise.all([
+    prisma.ultraObject.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        items: {
+          include: {
+            object: true,
+          },
+        },
+      },
+      orderBy: { title: 'asc' },
+    }),
+    prisma.objectMaster.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { title: 'asc' },
+    }),
+  ]);
+
+  const linkedObjectIds = new Set(
+    ultraObjects.flatMap((uo) => uo.items.map((item) => item.objectId))
+  );
+
+  const resolvedUltraObjects = await Promise.all(
+    ultraObjects.map(async (uo) => ({
+      id: uo.id,
+      title: uo.title,
+      description: uo.description,
+      imageUrl: await resolveImageUrl(uo.imageUrl),
+      objects: await Promise.all(
+        uo.items
+          .filter((item) => item.object.status === 'ACTIVE')
+          .map(async (item) => ({
+            id: item.object.id,
+            title: item.object.title,
+            description: item.object.description,
+            imageUrl: await resolveImageUrl(item.object.imageUrl),
+          }))
+      ),
+    }))
+  );
+
+  const resolvedObjects = await Promise.all(
+    allObjects
+      .filter((obj) => !linkedObjectIds.has(obj.id))
+      .map(async (obj) => ({
+        id: obj.id,
+        title: obj.title,
+        description: obj.description,
+        imageUrl: await resolveImageUrl(obj.imageUrl),
+      }))
+  );
+
+  res.json(
+    ApiResponseBuilder.success(
+      {
+        ultraObjects: resolvedUltraObjects,
+        objects: resolvedObjects,
+      },
+      requestId
+    )
+  );
+});
+
 kioskRouter.get('/combos', async (req, res) => {
   const requestId = (req as any).id;
 

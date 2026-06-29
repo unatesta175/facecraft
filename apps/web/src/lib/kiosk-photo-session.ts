@@ -1,3 +1,6 @@
+import type { PhotoTransform } from '@/components/kiosk/kiosk-framed-image';
+import { normalizePhotoTransform } from '@/components/kiosk/kiosk-framed-image';
+
 export type KioskBrowsePhoto = {
   id: string;
   s3Key: string;
@@ -5,7 +8,23 @@ export type KioskBrowsePhoto = {
   filename: string;
   capturedAt: string;
   similarity?: number;
+  photoTransform?: PhotoTransform;
+  /** AI-edited photo layer only; frame stays separate. */
+  editedPhotoUrl?: string | null;
 };
+
+export function normalizeAlbumPhoto(photo: KioskBrowsePhoto): KioskBrowsePhoto {
+  return {
+    ...photo,
+    photoTransform: normalizePhotoTransform(photo.photoTransform),
+    editedPhotoUrl: photo.editedPhotoUrl ?? null,
+  };
+}
+
+export function getAlbumPhotoDisplayUrl(photo: Pick<KioskBrowsePhoto, 'imageUrl' | 'editedPhotoUrl'>): string | null {
+  if (photo.editedPhotoUrl) return photo.editedPhotoUrl;
+  return photo.imageUrl;
+}
 
 export type KioskSelectedAlbum = {
   photos: KioskBrowsePhoto[];
@@ -49,7 +68,11 @@ export function loadSelectedAlbum(): KioskSelectedAlbum | null {
   const raw = sessionStorage.getItem(SELECTED_ALBUM_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as KioskSelectedAlbum;
+    const album = JSON.parse(raw) as KioskSelectedAlbum;
+    return {
+      ...album,
+      photos: (album.photos ?? []).map(normalizeAlbumPhoto),
+    };
   } catch {
     return null;
   }

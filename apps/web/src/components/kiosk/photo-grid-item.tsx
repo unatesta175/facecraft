@@ -1,34 +1,37 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
-import { format } from 'date-fns';
 import { KioskFramedImage, KIOSK_FRAME_ASPECT_CLASS } from '@/components/kiosk/kiosk-framed-image';
 
 type PhotoGridItemProps = {
   id: string;
   url: string;
-  capturedAt: Date;
   frameUrl: string | null;
   isSelected: boolean;
   index: number;
   onToggle: (id: string) => void;
 };
 
-function formatPhotoTime(date: Date) {
-  return format(date, 'h:mm a');
-}
-
 export const PhotoGridItem = memo(function PhotoGridItem({
   id,
   url,
-  capturedAt,
   frameUrl,
   isSelected,
   index,
   onToggle,
 }: PhotoGridItemProps) {
+  const [photoFit, setPhotoFit] = useState<'cover' | 'contain'>('cover');
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      setPhotoFit(img.naturalHeight > img.naturalWidth ? 'contain' : 'cover');
+    };
+    img.src = url;
+  }, [url]);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -44,7 +47,12 @@ export const PhotoGridItem = memo(function PhotoGridItem({
             : 'ring-1 ring-[#f0f0f0] hover:ring-2 hover:ring-[#e0e0e0]'
         }`}
       >
-        <KioskFramedImage photoUrl={url} frameUrl={frameUrl} alt={`Photo ${id}`} />
+        <KioskFramedImage
+          photoUrl={url}
+          frameUrl={frameUrl}
+          alt={`Photo ${id}`}
+          photoFit={photoFit}
+        />
 
         <div className="absolute right-4 top-4 z-20">
           <div
@@ -56,12 +64,6 @@ export const PhotoGridItem = memo(function PhotoGridItem({
           >
             {isSelected ? <Check className="h-6 w-6 text-white" /> : null}
           </div>
-        </div>
-
-        <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12">
-          <p className="font-nunito text-sm text-white">
-            {format(capturedAt, 'MMM d, yyyy')} • {formatPhotoTime(capturedAt)}
-          </p>
         </div>
 
         <div className="absolute inset-0 z-[1] bg-black/0 transition-colors group-hover:bg-black/5" />

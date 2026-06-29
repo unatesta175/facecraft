@@ -3,9 +3,17 @@
 import { motion } from 'framer-motion';
 import { X, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  KioskFramedImage,
+  KIOSK_FRAME_ASPECT_CLASS,
+  DEFAULT_PHOTO_TRANSFORM,
+  type PhotoTransform,
+} from '@/components/kiosk/kiosk-framed-image';
 
 interface PhotoFrameModalProps {
   imageUrl: string;
+  frameUrl?: string | null;
+  photoTransform?: PhotoTransform;
   productName: string;
   frameName?: string;
   photoCount?: number;
@@ -13,13 +21,15 @@ interface PhotoFrameModalProps {
   onClose: () => void;
 }
 
-export function PhotoFrameModal({ 
-  imageUrl, 
-  productName, 
+export function PhotoFrameModal({
+  imageUrl,
+  frameUrl = null,
+  photoTransform = DEFAULT_PHOTO_TRANSFORM,
+  productName,
   frameName = 'Standard Frame',
   photoCount = 1,
-  onSave, 
-  onClose 
+  onSave,
+  onClose,
 }: PhotoFrameModalProps) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
@@ -29,7 +39,6 @@ export function PhotoFrameModal({
         exit={{ opacity: 0, scale: 0.95 }}
         className="w-full max-w-3xl bg-white rounded-3xl overflow-hidden shadow-2xl"
       >
-        {/* Header */}
         <div className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] px-6 md:px-8 py-5 text-white">
           <div className="flex items-center justify-between">
             <div>
@@ -52,23 +61,21 @@ export function PhotoFrameModal({
           </div>
         </div>
 
-        {/* Photo Preview with Frame */}
         <div className="p-6 md:p-8 bg-[#f9f9f7]">
           <div className="relative max-w-md mx-auto">
-            {/* Modern Frame Border */}
             <div className="absolute -inset-4 bg-gradient-to-br from-[#c9982f] to-[#b8872a] rounded-2xl opacity-20" />
             <div className="absolute -inset-2 bg-gradient-to-br from-[#c9982f] to-[#b8872a] rounded-2xl opacity-30" />
 
-            {/* Photo */}
-            <div className="relative aspect-[3/4] bg-white rounded-2xl overflow-hidden shadow-xl border-4 border-white">
-              <img
-                src={imageUrl}
+            <div className={`relative ${KIOSK_FRAME_ASPECT_CLASS} bg-white rounded-2xl overflow-hidden shadow-xl border-4 border-white`}>
+              <KioskFramedImage
+                photoUrl={imageUrl}
+                frameUrl={frameUrl}
                 alt="Preview"
-                className="w-full h-full object-cover"
+                photoTransform={photoTransform}
+                photoFit="contain"
               />
-              
-              {/* Frame Label */}
-              <div className="absolute bottom-4 left-4 right-4">
+
+              <div className="absolute bottom-4 left-4 right-4 z-20">
                 <div className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] text-white px-4 py-2 rounded-lg shadow-lg">
                   <p className="font-jakarta text-sm font-semibold text-center">
                     {frameName} Frame
@@ -90,7 +97,6 @@ export function PhotoFrameModal({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="px-6 md:px-8 pb-6 md:pb-8 flex gap-3">
           <Button
             onClick={onClose}

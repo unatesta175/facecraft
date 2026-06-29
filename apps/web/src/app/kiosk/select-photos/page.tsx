@@ -15,6 +15,7 @@ import {
   loadFaceMatchPhotos,
   saveSelectedAlbum,
 } from '@/lib/kiosk-photo-session';
+import { normalizePhotoTransform, type PhotoTransform } from '@/components/kiosk/kiosk-framed-image';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 type KioskPhoto = {
@@ -185,7 +186,7 @@ function SelectPhotosContent() {
     setShowPreviewModal(true);
   };
 
-  const handleApplyPreview = () => {
+  const handleApplyPreview = (transforms: Record<string, PhotoTransform>) => {
     const selected = photos.filter((photo) => selectedPhotos.has(photo.id));
 
     saveSelectedAlbum({
@@ -195,6 +196,7 @@ function SelectPhotosContent() {
         imageUrl: photo.url,
         filename: photo.filename,
         capturedAt: photo.capturedAt.toISOString(),
+        photoTransform: normalizePhotoTransform(transforms[photo.id]),
       })),
       frameId: selectedFrame?.id ?? null,
       frameUrl: selectedFrameUrl,
@@ -338,7 +340,6 @@ function SelectPhotosContent() {
               key={photo.id}
               id={photo.id}
               url={photo.url}
-              capturedAt={photo.capturedAt}
               frameUrl={selectedFrameUrl}
               isSelected={selectedPhotos.has(photo.id)}
               index={index}

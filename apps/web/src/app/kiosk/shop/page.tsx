@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Plus, Minus, Info, Wand2, Check, AlertCircle, ArrowLeft, ImageOff } from 'lucide-react';
+import { ShoppingCart, Plus, Info, Check, AlertCircle, ArrowLeft, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -10,13 +10,24 @@ import { AIPhotoEditorModal } from '@/components/kiosk/ai-photo-editor-modal';
 import { PhotoFrameModal } from '@/components/kiosk/photo-frame-modal';
 import { kioskApi, type KioskShopPackage, type KioskShopProduct } from '@/lib/kiosk-api';
 import { useKioskCart } from '@/hooks/use-kiosk-cart';
-import { loadSelectedAlbum, type KioskBrowsePhoto } from '@/lib/kiosk-photo-session';
+import {
+  getAlbumPhotoDisplayUrl,
+  loadSelectedAlbum,
+  saveSelectedAlbum,
+  type KioskBrowsePhoto,
+} from '@/lib/kiosk-photo-session';
+import { KioskAlbumCard } from '@/components/kiosk/kiosk-album-card';
+import { normalizePhotoTransform, type PhotoTransform } from '@/components/kiosk/kiosk-framed-image';
 
 type AlbumImage = {
   id: string;
   url: string;
+  displayUrl: string;
   s3Key: string;
   filename: string;
+  capturedAt: string;
+  photoTransform: PhotoTransform;
+  editedPhotoUrl?: string | null;
 };
 
 export default function ShopPage() {
@@ -33,14 +44,20 @@ export default function ShopPage() {
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [imageQuantities, setImageQuantities] = useState<Record<string, number>>({});
-  const [aiModalImage, setAiModalImage] = useState<string | null>(null);
+  const [aiModalTargetId, setAiModalTargetId] = useState<string | null>(null);
   const [frameModalData, setFrameModalData] = useState<{
     pkg: KioskShopPackage;
     product: KioskShopProduct;
     images: AlbumImage[];
   } | null>(null);
   const [albumImages, setAlbumImages] = useState<AlbumImage[]>([]);
+  const [albumFrameUrl, setAlbumFrameUrl] = useState<string | null>(null);
+  const [albumMeta, setAlbumMeta] = useState<{
+    frameId: string | null;
+    source: 'face-search' | 'manual';
+  }>({ frameId: null, source: 'manual' });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
   const [pendingPackageId, setPendingPackageId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,17 +93,83 @@ export default function ShopPage() {
       return;
     }
 
+    setAlbumMeta({ frameId: album.frameId, source: album.source });
+
     const images: AlbumImage[] = album.photos
       .filter((photo): photo is KioskBrowsePhoto & { imageUrl: string } => Boolean(photo.imageUrl))
       .map((photo) => ({
         id: photo.id,
         url: photo.imageUrl,
+        displayUrl: getAlbumPhotoDisplayUrl(photo) ?? photo.imageUrl,
         s3Key: photo.s3Key,
         filename: photo.filename,
+        capturedAt: photo.capturedAt,
+        photoTransform: normalizePhotoTransform(photo.photoTransform),
+        editedPhotoUrl: photo.editedPhotoUrl ?? null,
       }));
 
+    setAlbumFrameUrl(album.frameUrl);
     setAlbumImages(images);
   }, [router]);
+
+  useEffect(() => {
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = () => {
+      window.history.pushState(null, '', window.location.href);
+      setShowBackConfirm(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const handleConfirmBack = () => {
+    setShowBackConfirm(false);
+    router.push('/kiosk/capture');
+  };
+
+  const persistAlbum = useCallback(
+    (photos: AlbumImage[]) => {
+      saveSelectedAlbum({
+        photos: photos.map((img) => ({
+          id: img.id,
+          s3Key: img.s3Key,
+          imageUrl: img.url,
+          filename: img.filename,
+          capturedAt: img.capturedAt,
+          photoTransform: img.photoTransform,
+          editedPhotoUrl: img.editedPhotoUrl ?? null,
+        })),
+        frameId: albumMeta.frameId,
+        frameUrl: albumFrameUrl,
+        source: albumMeta.source,
+      });
+    },
+    [albumMeta, albumFrameUrl]
+  );
+
+  const handleAiApply = (editedPhotoUrl: string) => {
+    if (!aiModalTargetId) return;
+
+    setAlbumImages((prev) => {
+      const next = prev.map((img) =>
+        img.id === aiModalTargetId
+          ? { ...img, editedPhotoUrl, displayUrl: editedPhotoUrl }
+          : img
+      );
+      persistAlbum(next);
+      return next;
+    });
+    setAiModalTargetId(null);
+    toast({
+      title: 'AI effect applied',
+      description: 'Your photo was updated. The frame is unchanged.',
+    });
+  };
 
   const handleAddProduct = (pkg: KioskShopPackage, product: KioskShopProduct) => {
     // Check if there's an active package that's not in cart yet
@@ -278,6 +361,10 @@ export default function ShopPage() {
     return sum + (imageQuantities[imgId] || 1);
   }, 0);
 
+  const aiModalTarget = aiModalTargetId
+    ? albumImages.find((img) => img.id === aiModalTargetId)
+    : null;
+
   return (
     <div className="min-h-screen bg-[#f9f9f7]">
       <div className="max-w-[1920px] mx-auto p-4 md:p-8">
@@ -288,12 +375,12 @@ export default function ShopPage() {
           className="mb-4"
         >
           <Button
-            onClick={() => router.push('/kiosk/select-photos')}
+            onClick={() => setShowBackConfirm(true)}
             variant="ghost"
             className="text-[#6b6b6b] hover:text-[#1f1b16] hover:bg-[#f5f5f5] rounded-xl transition-colors"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Photos
+            Back
           </Button>
         </motion.div>
 
@@ -522,90 +609,23 @@ export default function ShopPage() {
 
                 <div className="space-y-4 max-h-[600px] overflow-y-auto">
                   {albumImages.map((image) => (
-                    <div
+                    <KioskAlbumCard
                       key={image.id}
-                      className={`relative group rounded-xl overflow-hidden border-2 transition-all ${
-                        selectedImages.has(image.id)
-                          ? 'border-[#c9982f] shadow-md'
-                          : 'border-[#f0f0f0]'
-                      }`}
-                    >
-                      <img
-                        src={image.url}
-                        alt={image.id}
-                        className="w-full aspect-[3/4] object-cover"
-                      />
-
-                      {/* Overlay Controls */}
-                      <div className="absolute top-3 right-3 flex gap-2">
-                        <Button
-                          onClick={() => setAiModalImage(image.url)}
-                          size="icon"
-                          className="bg-gradient-to-r from-[#c9982f] to-[#b8872a] hover:from-[#b8872a] hover:to-[#a77824] text-white rounded-full w-10 h-10 shadow-md"
-                        >
-                          <Wand2 className="h-5 w-5" />
-                        </Button>
-                        
-                        <Button
-                          onClick={() => toggleImageSelection(image.id)}
-                          size="icon"
-                          className={`rounded-full w-10 h-10 shadow-md ${
-                            selectedImages.has(image.id)
-                              ? 'bg-gradient-to-r from-[#c9982f] to-[#b8872a] text-white'
-                              : 'bg-white/95 text-[#1f1b16] hover:bg-white'
-                          }`}
-                        >
-                          {selectedImages.has(image.id) ? (
-                            <Check className="h-5 w-5" />
-                          ) : (
-                            <Plus className="h-5 w-5" />
-                          )}
-                        </Button>
-                      </div>
-
-                      {/* Quantity Selector */}
-                      <AnimatePresence>
-                        {selectedImages.has(image.id) && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-sm rounded-xl p-3 flex items-center justify-between shadow-lg border border-[#f0f0f0]"
-                          >
-                            <span className="font-nunito text-sm font-medium text-[#1f1b16]">
-                              Quantity:
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                onClick={() => setImageQuantities(prev => ({
-                                  ...prev,
-                                  [image.id]: Math.max((prev[image.id] || 1) - 1, 1),
-                                }))}
-                                size="icon"
-                                variant="outline"
-                                className="w-8 h-8 border-[#e0e0e0] hover:bg-[#f9f9f7] hover:border-[#c9982f]"
-                              >
-                                <Minus className="h-4 w-4" />
-                              </Button>
-                              <span className="font-jakarta font-bold text-[#1f1b16] min-w-[30px] text-center">
-                                {imageQuantities[image.id] || 1}
-                              </span>
-                              <Button
-                                onClick={() => setImageQuantities(prev => ({
-                                  ...prev,
-                                  [image.id]: Math.min((prev[image.id] || 1) + 1, 10),
-                                }))}
-                                size="icon"
-                                variant="outline"
-                                className="w-8 h-8 border-[#e0e0e0] hover:bg-[#f9f9f7] hover:border-[#c9982f]"
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                      image={{
+                        id: image.id,
+                        filename: image.filename,
+                        photoUrl: image.displayUrl,
+                        photoTransform: image.photoTransform,
+                      }}
+                      frameUrl={albumFrameUrl}
+                      isSelected={selectedImages.has(image.id)}
+                      quantity={imageQuantities[image.id] || 1}
+                      onToggleSelect={toggleImageSelection}
+                      onOpenAiEditor={setAiModalTargetId}
+                      onQuantityChange={(id, quantity) =>
+                        setImageQuantities((prev) => ({ ...prev, [id]: quantity }))
+                      }
+                    />
                   ))}
                 </div>
               </motion.div>
@@ -634,6 +654,48 @@ export default function ShopPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Back Confirmation Modal */}
+      <AnimatePresence>
+        {showBackConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl"
+            >
+              <div className="mb-6 flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fff3cd]">
+                  <AlertCircle className="h-6 w-6 text-[#ff9d00]" />
+                </div>
+                <h3 className="font-jakarta text-xl font-bold text-[#1f1b16]">Leave this page?</h3>
+              </div>
+
+              <p className="mb-8 font-nunito text-base leading-relaxed text-[#6b6b6b]">
+                Your package selections on this page will not be saved. Do you want to go back to
+                capture a new photo?
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={() => setShowBackConfirm(false)}
+                  className="w-full rounded-2xl bg-gradient-to-r from-[#c9982f] to-[#b8872a] py-6 font-jakarta text-white shadow-md hover:from-[#b8872a] hover:to-[#a77824]"
+                >
+                  Stay on Shop
+                </Button>
+                <Button
+                  onClick={handleConfirmBack}
+                  variant="outline"
+                  className="w-full rounded-2xl border-2 border-[#ff6b6b] py-6 font-jakarta text-[#ff6b6b] transition-all hover:border-[#ff6b6b] hover:bg-[#ff6b6b] hover:text-white"
+                >
+                  Go to Capture
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Clear Previous Selection Confirmation Modal */}
       <AnimatePresence>
@@ -683,17 +745,23 @@ export default function ShopPage() {
       </AnimatePresence>
 
       {/* AI Photo Editor Modal */}
-      {aiModalImage && (
+      {aiModalTarget && (
         <AIPhotoEditorModal
-          imageUrl={aiModalImage}
-          onClose={() => setAiModalImage(null)}
+          photoUrl={aiModalTarget.url}
+          frameUrl={albumFrameUrl}
+          photoTransform={aiModalTarget.photoTransform}
+          initialEditedPhotoUrl={aiModalTarget.editedPhotoUrl}
+          onApply={handleAiApply}
+          onClose={() => setAiModalTargetId(null)}
         />
       )}
 
       {/* Photo Frame Preview Modal */}
       {frameModalData && (
         <PhotoFrameModal
-          imageUrl={frameModalData.images[0]?.url || ''}
+          imageUrl={frameModalData.images[0]?.displayUrl || frameModalData.images[0]?.url || ''}
+          frameUrl={albumFrameUrl}
+          photoTransform={frameModalData.images[0]?.photoTransform}
           productName={frameModalData.product.name}
           frameName={frameModalData.pkg.name}
           photoCount={frameModalData.images.length}
