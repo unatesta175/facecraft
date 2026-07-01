@@ -202,7 +202,7 @@ function PaymentModal({ total, onClose, onPaymentSuccess, onConfirmPayment }: Pa
                     className="bg-[#fafafa] p-6 rounded-2xl border border-[#f0f0f0]"
                   >
                     <p className="font-nunito text-sm text-[#1f1b16] mb-3 font-medium">
-                      Kindly enter the staff ID or scan the staff's QR Code for verification
+                      Kindly enter the staff ID or scan the staff&apos;s QR Code for verification
                     </p>
                     <Input
                       placeholder="Enter Staff ID..."

@@ -60,8 +60,8 @@ export default function SizesPage() {
                 rows.map((s, i) => (
                   <TableRow key={s.id}>
                     <TableCell className="text-[--color-text-secondary]">{(page - 1) * PER_PAGE + i + 1}</TableCell>
-                    <TableCell className="font-medium">{s.height}"</TableCell>
-                    <TableCell className="font-medium">{s.width}"</TableCell>
+                    <TableCell className="font-medium">{s.height}&quot;</TableCell>
+                    <TableCell className="font-medium">{s.width}&quot;</TableCell>
                     <TableCell className="text-sm text-[--color-text-secondary]">{new Date(s.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <RowActions

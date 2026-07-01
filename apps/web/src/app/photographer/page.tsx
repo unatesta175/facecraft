@@ -283,7 +283,7 @@ export default function PhotographerPage() {
               </div>
               <div>
                 <p className="font-nunito text-sm text-[--color-text-secondary] mb-1">
-                  Today's Uploads
+                  Today&apos;s Uploads
                 </p>
                 <p className="font-jakarta text-3xl font-bold text-[--color-text-primary]">
                   {stats.todayUploads}
@@ -352,7 +352,7 @@ export default function PhotographerPage() {
                         Select Photos from Camera Roll
                       </h4>
                       <p className="font-nunito text-[--color-text-secondary] mb-4">
-                        Take photos using your phone's camera app, then upload them here
+                        Take photos using your phone&apos;s camera app, then upload them here
                       </p>
                       <Button
                         type="button"

@@ -28,7 +28,9 @@ export default function KioskLoginPage() {
     kioskApi
       .getDemoAccounts()
       .then((response) => setDemoAccounts(response.data ?? null))
-      .catch(() => setDemoAccounts(null));
+      .catch(() => {
+        setDemoAccounts({ admin: null, kiosk: null, passwordHint: 'password123' });
+      });
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -174,7 +176,14 @@ export default function KioskLoginPage() {
             </Button>
           </form>
 
-          <DemoCredentials accounts={demoAccounts} variant="kiosk" />
+          <DemoCredentials
+            accounts={demoAccounts}
+            variant="kiosk"
+            onApply={({ login, password }) => {
+              setUsername(login);
+              setPassword(password);
+            }}
+          />
         </motion.div>
 
         <p className="shrink-0 text-center font-nunito text-xs text-[--color-text-secondary]">

@@ -645,7 +645,7 @@ export default function ShopPage() {
               </div>
               
               <p className="font-nunito text-base text-[#6b6b6b] mb-2 leading-relaxed">
-                You're currently working on another package. To start a new package, you need to either:
+                You&apos;re currently working on another package. To start a new package, you need to either:
               </p>
               <ul className="font-nunito text-base text-[#6b6b6b] mb-8 leading-relaxed list-disc list-inside space-y-1 ml-2">
                 <li>Complete all products and add it to cart, or</li>

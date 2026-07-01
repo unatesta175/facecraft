@@ -26,7 +26,9 @@ export default function LoginPage() {
     authApi
       .getDemoAccounts()
       .then((response) => setDemoAccounts(response.data ?? null))
-      .catch(() => setDemoAccounts(null));
+      .catch(() => {
+        setDemoAccounts({ admin: null, kiosk: null, passwordHint: 'password123' });
+      });
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -158,7 +160,14 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <DemoCredentials accounts={demoAccounts} variant="admin" />
+          <DemoCredentials
+            accounts={demoAccounts}
+            variant="admin"
+            onApply={({ login, password }) => {
+              setEmail(login);
+              setPassword(password);
+            }}
+          />
         </motion.div>
 
         {/* Footer */}

@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
         <div className="bg-white border border-[--color-border] rounded-xl p-8 space-y-6 text-sm text-[--color-text-primary] leading-relaxed">
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-[--color-text-primary]">1. Introduction</h2>
-            <p className="text-[--color-text-secondary]">FaceCraft Studio ("we", "our", or "us") is committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, and safeguard information when you use our photo capture and printing services.</p>
+            <p className="text-[--color-text-secondary]">FaceCraft Studio (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;) is committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, and safeguard information when you use our photo capture and printing services.</p>
           </section>
 
           <section className="space-y-3">

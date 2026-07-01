@@ -28,15 +28,13 @@ Write-Host ""
 
 # Step 2: Instructions for EC2
 Write-Host "Step 2: Deploy on EC2" -ForegroundColor Yellow
-Write-Host "Copy and paste these commands into your EC2 SSH terminal:" -ForegroundColor Cyan
+Write-Host "If GitHub Actions is configured (push to main), deploy runs automatically." -ForegroundColor Green
+Write-Host "Required secrets: EC2_HOST, EC2_USER, EC2_SSH_KEY" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Manual deploy — paste into EC2 SSH:" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "cd /var/www/facecraft" -ForegroundColor White
-Write-Host "git pull origin main" -ForegroundColor White
-Write-Host "npm install --production=false" -ForegroundColor White
-Write-Host "npm run db:generate" -ForegroundColor White
-Write-Host "npm run db:migrate:deploy --workspace=apps/api" -ForegroundColor White
-Write-Host "npm run build" -ForegroundColor White
-Write-Host "pm2 restart facecraft-api facecraft-web" -ForegroundColor White
+Write-Host "bash infrastructure/scripts/deploy.sh" -ForegroundColor White
 Write-Host "pm2 status" -ForegroundColor White
 Write-Host ""
 

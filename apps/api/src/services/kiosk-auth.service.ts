@@ -105,7 +105,8 @@ export class KioskAuthService {
             description: kiosk.description,
           }
         : null,
-      passwordHint: env.NODE_ENV === 'production' ? undefined : 'password123',
+      passwordHint:
+        process.env.SHOW_DEMO_CREDENTIALS === 'false' ? undefined : 'password123',
     };
   }
 }
