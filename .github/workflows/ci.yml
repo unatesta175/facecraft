@@ -30,6 +30,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      - name: Build shared contracts
+        run: npm run build --workspace=packages/contracts
+
       - name: Typecheck
         run: npm run typecheck
 
