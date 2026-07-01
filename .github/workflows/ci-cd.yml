@@ -3,19 +3,21 @@
 #   EC2_USER      — e.g. ubuntu
 #   EC2_SSH_KEY   — full contents of your .pem private key
 
-name: Deploy to EC2
+name: CI/CD
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-ec2
-  cancel-in-progress: false
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -37,13 +39,20 @@ jobs:
       - name: Build shared contracts
         run: npm run build --workspace=packages/contracts
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
       - name: Build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
         run: npm run build
 
   deploy:
-    needs: build
+    needs: test
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
 
     steps:
