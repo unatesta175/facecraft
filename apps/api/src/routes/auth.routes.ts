@@ -7,6 +7,7 @@ import { prisma } from '../services/database.service';
 import { authenticateUser } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { resolveImageUrl } from '../utils/image-url';
+import { getAuthCookieOptions } from '../utils/cookie-options';
 import { NotFoundError } from '../utils/errors';
 
 export const authRouter = Router();
@@ -32,12 +33,7 @@ authRouter.post(
       data: { isPhotographer: true },
     });
 
-    res.cookie('token', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: 'lax',
-    });
+    res.cookie('token', result.token, getAuthCookieOptions());
 
     res.status(201).json(
       ApiResponseBuilder.success(
@@ -57,12 +53,7 @@ authRouter.post('/login', validate(z.object({ body: loginSchema })), async (req,
 
   const result = await authService.login(email, password);
 
-  res.cookie('token', result.token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'lax',
-  });
+  res.cookie('token', result.token, getAuthCookieOptions());
 
   res.json(
     ApiResponseBuilder.success(
@@ -81,12 +72,7 @@ authRouter.post('/login-username', validate(z.object({ body: usernameLoginSchema
 
   const result = await authService.loginByUsername(username, password);
 
-  res.cookie('token', result.token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'lax',
-  });
+  res.cookie('token', result.token, getAuthCookieOptions());
 
   res.json(
     ApiResponseBuilder.success(
@@ -111,12 +97,7 @@ authRouter.post('/kiosk-login', validate(z.object({ body: kioskLoginSchema })), 
 
   const result = await kioskAuthService.login(username, password);
 
-  res.cookie('kioskToken', result.token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'lax',
-  });
+  res.cookie('kioskToken', result.token, getAuthCookieOptions());
 
   res.json(
     ApiResponseBuilder.success(
@@ -131,14 +112,14 @@ authRouter.post('/kiosk-login', validate(z.object({ body: kioskLoginSchema })), 
 
 authRouter.post('/kiosk-logout', async (req, res) => {
   const requestId = (req as any).id;
-  res.clearCookie('kioskToken');
+  res.clearCookie('kioskToken', getAuthCookieOptions());
   res.json(ApiResponseBuilder.success({ message: 'Logged out successfully' }, requestId));
 });
 
 authRouter.post('/logout', authenticateUser, async (req, res) => {
   const requestId = (req as any).id;
 
-  res.clearCookie('token');
+  res.clearCookie('token', getAuthCookieOptions());
 
   res.json(
     ApiResponseBuilder.success(

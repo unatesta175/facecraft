@@ -1,26 +1,30 @@
 'use client';
 
 import type { DemoAccounts } from '@/lib/kiosk-api';
+import { STATIC_DEMO_ACCOUNTS, STATIC_DEMO_PASSWORD } from '@/lib/demo-credentials';
 
 type DemoCredentialsProps = {
   accounts: DemoAccounts | null;
-  variant: 'admin' | 'kiosk';
+  variant: 'admin' | 'kiosk' | 'photographer';
   onApply?: (credentials: { login: string; password: string }) => void;
 };
 
 export function DemoCredentials({ accounts, variant, onApply }: DemoCredentialsProps) {
-  if (!accounts) {
+  if (accounts?.passwordHint === undefined && accounts !== null) {
     return null;
   }
 
-  const account = variant === 'admin' ? accounts.admin : accounts.kiosk;
-  const password = accounts.passwordHint ?? 'password123';
+  const password = accounts?.passwordHint ?? STATIC_DEMO_PASSWORD;
 
-  if (!account) {
-    return null;
-  }
+  const account =
+    variant === 'admin'
+      ? accounts?.admin ?? STATIC_DEMO_ACCOUNTS.admin
+      : variant === 'kiosk'
+        ? accounts?.kiosk ?? STATIC_DEMO_ACCOUNTS.kiosk
+        : accounts?.photographer ?? STATIC_DEMO_ACCOUNTS.photographer;
 
-  const loginLabel = variant === 'admin' ? 'Email' : 'Username';
+  const loginLabel =
+    variant === 'admin' ? 'Email' : variant === 'photographer' ? 'Username' : 'Username';
   const loginValue =
     variant === 'admin' && 'email' in account
       ? account.email

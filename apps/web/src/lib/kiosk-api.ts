@@ -12,6 +12,12 @@ export type DemoAccounts = {
     username: string;
     description: string | null;
   } | null;
+  photographer: {
+    name: string;
+    email: string;
+    username: string;
+    role: string;
+  } | null;
   passwordHint?: string;
 };
 

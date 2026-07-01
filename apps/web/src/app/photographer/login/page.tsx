@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, User, LogIn } from 'lucide-react';
@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { photographerApi } from '@/lib/photographer-api';
+import { authApi } from '@/lib/auth-api';
+import { DemoAccounts } from '@/lib/kiosk-api';
+import { DemoCredentials } from '@/components/demo-credentials';
 import { LoginBackButton } from '@/components/login-back-button';
 import { LoginBrandHeader } from '@/components/login-brand-header';
 
@@ -18,6 +21,16 @@ export default function PhotographerLoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccounts | null>(null);
+
+  useEffect(() => {
+    authApi
+      .getDemoAccounts()
+      .then((response) => setDemoAccounts(response.data ?? null))
+      .catch(() => {
+        setDemoAccounts(null);
+      });
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,14 +163,14 @@ export default function PhotographerLoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-[--color-surface-muted] rounded-lg border border-[--color-border]">
-            <p className="font-nunito text-xs text-[--color-text-secondary] text-center mb-2">
-              Use your photographer account
-            </p>
-            <p className="font-mono text-xs text-[--color-text-primary] text-center">
-              Example: <span className="font-semibold">team2b</span> / password123
-            </p>
-          </div>
+          <DemoCredentials
+            accounts={demoAccounts}
+            variant="photographer"
+            onApply={({ login, password }) => {
+              setUsername(login);
+              setPassword(password);
+            }}
+          />
         </motion.div>
       </motion.div>
     </div>

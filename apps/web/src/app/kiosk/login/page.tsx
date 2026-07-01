@@ -29,7 +29,7 @@ export default function KioskLoginPage() {
       .getDemoAccounts()
       .then((response) => setDemoAccounts(response.data ?? null))
       .catch(() => {
-        setDemoAccounts({ admin: null, kiosk: null, passwordHint: 'password123' });
+        setDemoAccounts(null);
       });
   }, []);
 

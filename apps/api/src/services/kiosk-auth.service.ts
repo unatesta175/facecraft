@@ -64,49 +64,71 @@ export class KioskAuthService {
   }
 
   async getDemoAccounts() {
-    const [admin, kiosk] = await Promise.all([
-      prisma.user.findFirst({
+    const showPasswordHint = process.env.SHOW_DEMO_CREDENTIALS !== 'false';
+    const passwordHint = showPasswordHint ? 'password123' : undefined;
+
+    const adminByEmail = await prisma.user.findFirst({
+      where: { email: 'admin@facecraft.com', status: 'ACTIVE' },
+      select: { name: true, email: true, username: true, role: true },
+    });
+    const admin =
+      adminByEmail ??
+      (await prisma.user.findFirst({
         where: {
           status: 'ACTIVE',
           role: { in: ['ADMIN', 'MANAGER'] },
         },
         orderBy: { createdAt: 'asc' },
-        select: {
-          name: true,
-          email: true,
-          username: true,
-          role: true,
-        },
-      }),
-      prisma.kiosk.findFirst({
+        select: { name: true, email: true, username: true, role: true },
+      }));
+
+    const kioskByUsername = await prisma.kiosk.findFirst({
+      where: { username: 'kiosk01', status: 'ACTIVE' },
+      select: { name: true, username: true, description: true },
+    });
+    const kiosk =
+      kioskByUsername ??
+      (await prisma.kiosk.findFirst({
         where: { status: 'ACTIVE' },
         orderBy: { createdAt: 'asc' },
-        select: {
-          name: true,
-          username: true,
-          description: true,
-        },
-      }),
-    ]);
+        select: { name: true, username: true, description: true },
+      }));
+
+    const photographerByUsername = await prisma.user.findFirst({
+      where: { username: 'haris.farhan', status: 'ACTIVE' },
+      select: { name: true, email: true, username: true, role: true },
+    });
+    const photographer =
+      photographerByUsername ??
+      (await prisma.user.findFirst({
+        where: { status: 'ACTIVE', isPhotographer: true },
+        orderBy: { createdAt: 'asc' },
+        select: { name: true, email: true, username: true, role: true },
+      }));
+
+    const fallbackAdmin = {
+      name: 'Ahmad Razif',
+      email: 'admin@facecraft.com',
+      username: 'ahmad.razif',
+      role: 'ADMIN',
+    };
+    const fallbackKiosk = {
+      name: 'Main Lobby Kiosk',
+      username: 'kiosk01',
+      description: 'Primary kiosk at main lobby',
+    };
+    const fallbackPhotographer = {
+      name: 'Haris Farhan',
+      email: 'photographer@facecraft.com',
+      username: 'haris.farhan',
+      role: 'STAFF',
+    };
 
     return {
-      admin: admin
-        ? {
-            name: admin.name,
-            email: admin.email,
-            username: admin.username,
-            role: admin.role,
-          }
-        : null,
-      kiosk: kiosk
-        ? {
-            name: kiosk.name,
-            username: kiosk.username,
-            description: kiosk.description,
-          }
-        : null,
-      passwordHint:
-        process.env.SHOW_DEMO_CREDENTIALS === 'false' ? undefined : 'password123',
+      admin: admin ?? fallbackAdmin,
+      kiosk: kiosk ?? fallbackKiosk,
+      photographer: photographer ?? fallbackPhotographer,
+      passwordHint,
     };
   }
 }

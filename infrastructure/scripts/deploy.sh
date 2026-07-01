@@ -60,6 +60,13 @@ else
     print_warning "Skipping database migrations (RUN_DB_MIGRATIONS=false)"
 fi
 
+print_status "Ensuring default login accounts..."
+if npm run db:bootstrap --workspace=apps/api; then
+    print_status "Default login accounts ready"
+else
+    print_warning "Default account bootstrap failed - login may not work until db:bootstrap succeeds"
+fi
+
 print_status "Building applications..."
 npm run build --workspace=packages/contracts
 npm run build --workspace=apps/api
