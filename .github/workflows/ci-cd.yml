@@ -68,4 +68,8 @@ jobs:
           script: |
             set -e
             cd /var/www/facecraft
+            git fetch origin main
+            rm -f apps/api/tsconfig.tsbuildinfo packages/contracts/tsconfig.tsbuildinfo 2>/dev/null || true
+            git reset --hard origin/main
+            git clean -fd
             bash infrastructure/scripts/deploy.sh

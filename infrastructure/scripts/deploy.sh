@@ -39,7 +39,9 @@ fi
 
 print_status "Syncing code from origin/main..."
 git fetch origin main
+rm -f apps/api/tsconfig.tsbuildinfo packages/contracts/tsconfig.tsbuildinfo 2>/dev/null || true
 git reset --hard origin/main
+git clean -fd
 
 print_status "Installing dependencies..."
 npm install --production=false
@@ -59,7 +61,9 @@ else
 fi
 
 print_status "Building applications..."
-npm run build
+npm run build --workspace=packages/contracts
+npm run build --workspace=apps/api
+npm run build --workspace=apps/web
 
 print_status "Reloading PM2 processes..."
 if [ -f "infrastructure/pm2/ecosystem.config.cjs" ]; then
