@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { ApiResponse } from '@facecraft/contracts';
+import { getApiBaseUrl } from './api-base-url';
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+  baseURL: getApiBaseUrl(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

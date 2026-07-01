@@ -70,6 +70,9 @@ fi
 print_status "Building applications..."
 npm run build --workspace=packages/contracts
 npm run build --workspace=apps/api
+# Browser uses same-origin /api via nginx; Next rewrites use local API on :4000
+export API_URL="${API_URL:-http://localhost:4000}"
+export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
 npm run build --workspace=apps/web
 
 print_status "Reloading PM2 processes..."
