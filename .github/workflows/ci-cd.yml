@@ -45,10 +45,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Build
+      - name: Build API and web
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
-        run: npm run build
+        run: npm run build --workspace=apps/api && npm run build --workspace=apps/web
 
   deploy:
     needs: test
