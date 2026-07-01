@@ -1,0 +1,7 @@
+{
+  "extends": ["../../.eslintrc.json"],
+  "ignorePatterns": ["src/types/express.d.ts"],
+  "rules": {
+    "@typescript-eslint/no-namespace": "off"
+  }
+}

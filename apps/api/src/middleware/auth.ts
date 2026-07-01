@@ -4,21 +4,9 @@ import { AuthenticationError, AuthorizationError } from '../utils/errors';
 import { env } from '../config/env';
 import { prisma } from '../services/database.service';
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  roles: string[];
-  permissions: string[];
-  isPhotographer: boolean;
-}
+import { AuthUser } from '../types/auth';
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthUser;
-    }
-  }
-}
+export type { AuthUser };
 
 export async function authenticateUser(req: Request, _res: Response, next: NextFunction) {
   try {

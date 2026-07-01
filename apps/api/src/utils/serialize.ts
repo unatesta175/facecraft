@@ -10,7 +10,8 @@ export function toDateOnly(value: Date | string): string {
   return toIsoString(value).split('T')[0];
 }
 
-export function omitPassword<T extends { passwordHash?: string }>(record: T) {
-  const { passwordHash: _passwordHash, ...rest } = record;
-  return rest;
+export function omitPassword<T extends { passwordHash?: string }>(record: T): Omit<T, 'passwordHash'> {
+  const rest = { ...record };
+  delete (rest as { passwordHash?: string }).passwordHash;
+  return rest as Omit<T, 'passwordHash'>;
 }
